@@ -1,0 +1,15 @@
+# Xcode user state
+xcuserdata/
+*.xcuserstate
+*.xcuserdatad/
+
+# Build
+DerivedData/
+build/
+*.xcarchive
+
+# macOS
+.DS_Store
+
+# gstack runtime
+.gstack/

@@ -1,0 +1,250 @@
+# Design System — Alpha Academy
+
+> Source of truth for every visual decision in this app.
+> Derived from a supplied reference screenshot (dark fintech instrument panel),
+> extracted pixel-for-pixel, then mapped onto Alpha Academy's real screens.
+
+## Product Context
+
+- **What this is:** An iOS trainer for the NATO/ICAO phonetic alphabet. Teaches the
+  practical skill of spelling information aloud — booking codes, passport series,
+  emails, tracking numbers — so the other end never has to ask twice.
+- **Who it's for:** People who dictate codes over the phone. Pilots, dispatchers,
+  support staff, logistics, and ordinary people improvising "M as in Mike".
+- **Space/industry:** iOS Education / Reference. A crowded category — at least eight
+  direct competitors ship a NATO alphabet trainer today.
+- **Project type:** Native iOS app (SwiftUI, iPhone only, portrait, deployment target 16).
+- **The memorable thing:** *A serious instrument, not a game.* Every decision below
+  serves that one impression. When a choice is ambiguous, pick the one that reads as
+  equipment.
+
+### Competitive findings that shaped this system
+
+Researched August 2026 by visiting App Store listings directly.
+
+- **Weak-spot tracking and flight-number practice are already shipped** by *NATO Alphabet
+  Learning*. **Multi-alphabet (NATO + LAPD) is already shipped** by *Phonetic Trainer*.
+  Neither is a differentiator.
+- **The category is uniformly blue or green flat vector** — compasses, aircraft, or a
+  letter "A". Icon and palette convergence is near-total.
+- **Privacy is a visible competitive axis.** The two apps badged *Data Not Collected*
+  sit at 5.0 stars. The one declaring Purchases / Location / Identifiers / Usage Data
+  sits at 2.6.
+- **Naming collision:** the developer of *Learn NATO Phonetic Alphabet* ships a family
+  called Maritime Academy, Braille Academy, Sky Academy, Art Academy, Elements Academy.
+  "Alpha Academy" reads as one of theirs. Flagged, not resolved here.
+- **Nobody designs for the moment of use.** Every competitor is a study screen you read
+  sitting down. The real moment is mid-phone-call, one-handed, needing a word in half a
+  second. That reframes the reference chart from a cheat sheet into a primary surface.
+
+## Aesthetic Direction
+
+- **Direction:** Industrial / instrument panel. Deep navy field, elevated cards, a single
+  hot action, semantic colour reserved for numbers.
+- **Decoration level:** Minimal. Depth comes from tone separation, never from shadow.
+- **Mood:** Reading a well-made instrument. Dense but calm. Nothing decorative, nothing
+  celebratory, nothing that pressures.
+- **Reference:** supplied screenshot of a dark trading/signals app (see Decisions Log).
+
+### Four devices deliberately NOT carried over from the reference
+
+The reference is a conversion-driven product. These four exist to push a payment, not to
+help anyone learn, and in a free educational utility they are the exact 4.3 "spam design"
+pattern that sank earlier submissions of this concept.
+
+1. **Countdown clock on the home screen.** Would count down to nothing. The timer survives
+   only in Speed Mode, where it *is* the exercise.
+2. **Lime-to-pink gradient chips.** Pure decoration carrying no information.
+3. **Gradient + outer glow on the hot button.** Slot-machine grammar. Flat fill instead.
+4. **"Lv.1 / Not activated" lock badges.** Gating chrome for a paywall that does not exist.
+   Rank still shows, as information rather than as a lock.
+
+Also corrected: the reference uses two near-identical greens (hue 140 and hue 162) for one
+job, and three different ambers. This system defines exactly one value per role.
+
+## Color
+
+**Approach:** restrained. Colour is information. A screen with no state to report is
+navy, ink, and one orange button.
+
+### Surfaces — depth by tone, never by shadow
+
+| Token | Hex | Use |
+|---|---|---|
+| `bg` | `#11162C` | Page field. Everything sits on this. |
+| `surface` | `#1C2137` | Standard card. Lighter than the field. |
+| `surfaceDeep` | `#061944` | Session surfaces (encode, decode). Deeper and bluer, not darker. |
+| `surfaceDeepAlt` | `#14264E` | Rows nested inside a deep card. |
+| `tabBar` | `#0D1021` | Floating bar. The darkest thing on screen. |
+| `chipNeutral` | `#282D41` | Neutral chips and badges. |
+| `paper` | `#B6CCFB` | **The one light surface.** Letter cards only. |
+
+### Accents
+
+| Token | Hex | Use |
+|---|---|---|
+| `hot` | `#D26A05` | Flat fill, no gradient, no glow. **Exactly one per screen.** |
+| `hotPressed` | `#B35309` | Pressed state for `hot`. |
+| `blue` | `#2459F5` | All other interactivity. Mastery fill. |
+| `blueBright` | `#448DFF` | Active tab item, combo multiplier. |
+| `glow` | `#1B3A71` | Radial glow under the centre tab item. Nowhere else. |
+
+### Semantic — one value per role
+
+| Token | Hex | Use |
+|---|---|---|
+| `positive` | `#77D2B4` | Correct answers, accuracy, gains. |
+| `negative` | `#F0616B` | Wrong answers. Never for anything else. |
+| `amber` | `#EFC26A` | Due for review, weak letters. Text and icons. |
+| `amberFill` | `#FFE047` | Timer chip fill only. Dark text on top. |
+| `track` | `#2B3350` | Empty half of every meter, tile, and progress bar. |
+
+### Text
+
+| Token | Hex | Use |
+|---|---|---|
+| `ink` | `#F2F5FF` | Primary text on dark. |
+| `ink2` | `#8B90AB` | Secondary text, inactive tab labels. |
+| `ink3` | `#6A6F85` | Tracked uppercase micro-labels. |
+| `onPaper` | `#0B1220` | Text on the light plate, including the letter glyph. |
+| `onPaper2` | `#3C4A6B` | Pronunciation key and mnemonic on the light plate. |
+
+**Dark mode:** This system *is* the dark mode. There is no light variant. `AccentColor`
+in the asset catalog is `#2459F5` for both appearances so system chrome matches.
+
+**Contrast:** `ink` on `bg` is well above 4.5:1. `ink3` at 10px is decorative label text
+only and never carries information a user must read; the value beneath it always does.
+
+## Typography
+
+Three families, three jobs. Never more.
+
+- **Display / the letter:** **Instrument Serif** (OFL, bundled ~150 KB) — used *only* on
+  the light plate and in mastery tiles. This is what makes the card read as a printed
+  specimen instead of a UI panel, and it is the one element a competitor cannot copy
+  without rebuilding their whole app.
+- **Interface and headings:** **General Sans** (Fontshare, bundled) for screen titles and
+  card headings. **SF Pro** (system) for body copy and controls, so Dynamic Type behaves
+  natively.
+- **Numbers:** **IBM Plex Mono** (OFL, bundled) with tabular figures. Every numeral the
+  user reads: timer, score, combo multiplier, XP, percentages, counts. Also carries the
+  pronunciation key (`BRAH-VOH`) and the encode target string (`BK7291`).
+- **Never used:** SF Mono (reads as Xcode), any rounded face (reads as a toy), Inter,
+  Poppins, Montserrat, Space Grotesk.
+
+**Bundling:** drop `.otf` files anywhere under `newApp/newApp/` — the target uses
+`PBXFileSystemSynchronizedRootGroup`, so they are added as resources automatically. Register
+them under `UIAppFonts` in `Info.plist`. Add the OFL attribution to the Settings → About screen.
+
+### Scale
+
+| Role | Font | Size | Weight | Treatment |
+|---|---|---|---|---|
+| Letter glyph (hero) | Instrument Serif | 120 | regular | On `paper`, capped at 150, drops to 64 at accessibility sizes |
+| Letter glyph (tile) | Instrument Serif | 19 | regular | Mastery grid |
+| Screen title | General Sans | 26 | 600 | `-0.3` tracking |
+| Card heading | General Sans | 17 | 600 | |
+| Code word | General Sans | 19 | 600 | Uppercase, `+3` tracking |
+| Body | SF Pro | 15–17 | regular | |
+| Big numeral | IBM Plex Mono | 34 | 600 | `-1` tracking, tabular |
+| Stat value | IBM Plex Mono | 15 | 600 | Tabular |
+| Timer | IBM Plex Mono | 15 | 600 | On `amberFill` chip |
+| Pronunciation key | IBM Plex Mono | 13 | regular | `+1.5` tracking |
+| Micro-label | General Sans | 10 | 600 | Uppercase, `+1.3` tracking, `ink3` |
+| Caption | SF Pro | 12 | regular | `ink2` |
+
+## Spacing
+
+- **Base unit:** 4
+- **Density:** comfortable
+- **Scale:** 4 · 8 · 12 · 16 · 24 · 32
+- **Screen gutter:** 16
+- **Card padding:** 16
+- **Rhythm between blocks:** 14
+- **Rhythm between sections:** 24
+
+## Layout
+
+- **Approach:** grid-disciplined, single column. Answer options occupy a fixed block at
+  the bottom of the screen and never move between questions — a shifting target costs
+  thumb accuracy under time pressure.
+- **Border radius:** cards 20 · buttons 14 · tab bar 28 · mastery tile 9 · chips full pill
+- **Max content width:** full width minus gutters (iPhone only)
+- **Orientation:** portrait locked
+
+### Structural rules
+
+- **One hot action per screen.** A second `hot` button means the screen has two primary
+  actions and the information architecture is wrong. Fix the IA, not the colour.
+- **One light surface per screen,** reserved for the letter. It is the loudest thing on
+  screen by construction, which is correct — the letter is the product.
+- **Zero shadows anywhere.** A card is lighter or bluer than its field, never floated.
+- **Micro-labels sit above their value, never beside it.**
+- **Every numeral the user reads is monospaced with tabular figures.** No exceptions —
+  a ticking timer or a rising score must never shift the layout.
+- **Tab bar floats:** inset 12 from each edge, 74 tall, radius 28. The centre item
+  (Practice) carries a radial `glow` and is the primary action.
+- **Sessions are `fullScreenCover` and hide the tab bar.** Only browsing surfaces
+  (Home, Learn, Practice, Progress, Chart) show it.
+
+## Motion
+
+- **Approach:** minimal-functional. If an animation communicates state, keep it. If it
+  celebrates, cut it.
+- **Easing:** enter `ease-out` · exit `ease-in` · move `ease-in-out`
+- **Durations:** answer state change 180ms · wrong-answer shake 240ms at 6pt amplitude ·
+  mastery fill 450ms · phase crossfade 250ms
+- **Haptics:** light impact on correct, error notification on wrong, success notification
+  exactly once per session and nowhere else.
+- **Banned:** confetti, particles, spring overshoot below 0.8 damping, scale pops above
+  1.06, sound effects of any kind, screen-edge glow, "COMBO!" bursts, coin counters,
+  3D card flips.
+- **Reduce Motion:** shake becomes a 150ms crossfade, mastery fill becomes instant,
+  summary stagger becomes a single fade.
+
+## Accessibility
+
+- The 120pt glyph uses a capped `ScaledMetric` and drops to 64pt at accessibility sizes —
+  counter-intuitive but correct, since at those sizes the *words* need the room.
+- Answer grids switch from two columns to one at accessibility sizes.
+- Correct and wrong always carry a glyph (`checkmark` / `xmark`) alongside the colour.
+  The sage/brick pair is ambiguous for roughly 8% of male users.
+- The Speed Mode timer is `accessibilityHidden` — a ticking value must not re-announce.
+- Decode by Ear always offers "Show the sequence", or the mode is unusable for deaf and
+  hard-of-hearing learners.
+
+## App Icon
+
+Not yet produced. Blocker for submission — a blank icon is an automatic reject.
+
+**Concept:** the light plate on the dark field, reduced to its essentials. A serif
+**A** in `onPaper` on a `paper` rectangle, sitting on a `bg` navy ground. It is the app's
+hero element at icon scale, and in a category of blue and green compasses and aircraft it
+is the only light-on-dark typographic mark.
+
+Requires three 1024×1024 PNGs (light, dark, tinted-grayscale), sRGB, no alpha, no baked
+corner radius.
+
+## Decisions Log
+
+| Date | Decision | Rationale |
+|------|----------|-----------|
+| 2026-08-17 | Adopted dark instrument system from supplied reference | User supplied a reference screenshot and asked for a system derived from it. Replaces an earlier warm-paper light theme already implemented in `Theme.swift`. |
+| 2026-08-17 | Memorable thing = "a serious instrument, not a game" | User choice. Every subsequent decision is judged against it. |
+| 2026-08-17 | Kept reference structure and palette; dropped four conversion-pressure devices | Countdown, gradient chips, glowing gradient CTA, and lock badges are the 4.3 surface. Everything else in the reference is craft with no risk. |
+| 2026-08-17 | Hot button flattened to `#D26A05`, no gradient, no glow | The gradient-plus-glow combination is the slot-machine tell. The "one hot action" hierarchy is good IA and stays. |
+| 2026-08-17 | Instrument Serif for the letter glyph | The light plate already breaks the reference's all-sans rule by existing. A serif makes it a printed specimen rather than a card component, and it is the only element in this category that could be recognised as ours. |
+| 2026-08-17 | Unified two greens into `positive`, three ambers into `amber` + `amberFill` | The reference uses hue 140 and hue 162 for the same job. Copying that defect would cost us in six months. |
+| 2026-08-17 | `paper` kept at reference periwinkle `#B6CCFB` | Faithful to the supplied reference. A warm-paper variant (`#EDE8DC`) was considered and deferred; revisit after seeing the plate on real hardware. |
+| 2026-08-17 | Chart stays the fifth tab | Research suggests promoting it to first would match the real moment of use (mid-call, one-handed). Not adopted in this pass — it is a product IA change, not a design system change. Open. |
+
+## Open Items
+
+- **App icon** — release blocker, needs a designer.
+- **AppsFlyer SDK is linked and unused**, alongside an unused push entitlement and
+  `remote-notification` background mode. In a category where *Data Not Collected* correlates
+  with 5.0 ratings and tracking correlates with 2.6, this is the largest non-visual risk in
+  the repo.
+- **Bundle id `j.newApp`** must become real reverse-DNS.
+- **Name collision** with a competitor's "* Academy" family.
+- **Warm-paper variant** of the light plate, deferred.

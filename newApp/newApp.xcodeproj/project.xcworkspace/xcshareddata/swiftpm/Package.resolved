@@ -1,0 +1,15 @@
+{
+  "originHash" : "f7792ec3a190e141f40feb04cf95b0c5a75bf129ff1779067bc822daff1d218f",
+  "pins" : [
+    {
+      "identity" : "appsflyerframework-dynamic",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/AppsFlyerSDK/AppsFlyerFramework-Dynamic",
+      "state" : {
+        "revision" : "39d89f139c362e7e3a7ba5b582a7894254e5ebd8",
+        "version" : "7.0.1"
+      }
+    }
+  ],
+  "version" : 3
+}
