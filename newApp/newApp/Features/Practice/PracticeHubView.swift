@@ -25,7 +25,7 @@ struct PracticeHubView: View {
                         SectionHeader(title: "Scenario sets")
                         Text("Encode and Decode draw their strings from these.")
                             .font(.caption)
-                            .foregroundColor(Theme.inkSecondary)
+                            .foregroundColor(Theme.ink2)
                         LazyVGrid(
                             columns: [GridItem(.adaptive(minimum: 150), spacing: Theme.Space.m)],
                             spacing: Theme.Space.m
@@ -37,9 +37,11 @@ struct PracticeHubView: View {
                     }
                 }
                 .padding(.horizontal, Theme.Space.l)
-                .padding(.vertical, Theme.Space.l)
+                .padding(.top, Theme.Space.l)
+                // Clears the floating tab bar.
+                .padding(.bottom, Theme.tabBarClearance)
             }
-            .background(Theme.background.ignoresSafeArea())
+            .background(Theme.bg.ignoresSafeArea())
             .navigationTitle("Practice")
             .fullScreenCover(item: $activeMode) { mode in
                 SessionContainerView(
@@ -72,11 +74,11 @@ struct PracticeHubView: View {
         return HStack(spacing: Theme.Space.m) {
             Image(systemName: mode.symbolName)
                 .font(.title3)
-                .foregroundColor(Theme.accent)
+                .foregroundColor(Theme.blue)
                 .frame(width: 44, height: 44)
                 .background(
-                    RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
-                        .fill(Theme.surfaceSunken)
+                    RoundedRectangle(cornerRadius: Theme.Radius.button, style: .continuous)
+                        .fill(Theme.chipNeutral)
                 )
 
             VStack(alignment: .leading, spacing: 2) {
@@ -85,7 +87,7 @@ struct PracticeHubView: View {
                     .foregroundColor(Theme.ink)
                 Text(mode.subtitle)
                     .font(.caption)
-                    .foregroundColor(Theme.inkSecondary)
+                    .foregroundColor(Theme.ink2)
                     .multilineTextAlignment(.leading)
             }
 
@@ -94,12 +96,12 @@ struct PracticeHubView: View {
             if let accuracy, accuracy.sampleSize >= 10 {
                 Text("\(Int(accuracy.allTime * 100))%")
                     .font(.caption.monospacedDigit())
-                    .foregroundColor(Theme.inkSecondary)
+                    .foregroundColor(Theme.ink2)
             }
 
             Image(systemName: "chevron.right")
                 .font(.caption.weight(.semibold))
-                .foregroundColor(Theme.rule)
+                .foregroundColor(Theme.track)
         }
         .padding(Theme.Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -110,13 +112,13 @@ struct PracticeHubView: View {
         VStack(alignment: .leading, spacing: Theme.Space.xs) {
             Image(systemName: set.category.symbolName)
                 .font(.subheadline)
-                .foregroundColor(Theme.accent)
+                .foregroundColor(Theme.blue)
             Text(set.title)
                 .font(.subheadline.weight(.medium))
                 .foregroundColor(Theme.ink)
             Text(set.samples.first ?? "")
                 .font(.system(.caption2, design: .monospaced))
-                .foregroundColor(Theme.inkSecondary)
+                .foregroundColor(Theme.ink2)
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

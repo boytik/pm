@@ -4,7 +4,6 @@
 //
 
 import SwiftUI
-import UIKit
 
 struct RootView: View {
     @StateObject private var store = AppStore()
@@ -12,7 +11,7 @@ struct RootView: View {
 
     var body: some View {
         ZStack {
-            Theme.background.ignoresSafeArea()
+            Theme.bg.ignoresSafeArea()
 
             switch router.phase {
             case .splash:
@@ -26,13 +25,13 @@ struct RootView: View {
         .animation(.easeInOut(duration: 0.25), value: router.phase)
         .environmentObject(store)
         .environmentObject(router)
-        .tint(Theme.accent)
+        .tint(Theme.blue)
+        .preferredColorScheme(.dark)
         .task {
             #if DEBUG
             if DebugSelfCheck.isRequested { DebugSelfCheck.run(on: store) }
             #endif
-            // Hold the splash briefly so it does not flash and vanish, then
-            // route on whether onboarding is done.
+            // Hold the splash briefly so it does not flash and vanish.
             try? await Task.sleep(nanoseconds: 900_000_000)
             store.refreshStreakIfNeeded()
             router.phase = store.profile.hasOnboarded ? .main : .onboarding
@@ -40,38 +39,97 @@ struct RootView: View {
     }
 }
 
+/// Custom bar rather than SwiftUI's `TabView` chrome: the reference's floating
+/// pill with a glowing centre item cannot be expressed through
+/// `UITabBarAppearance`, and the system bar would fight the dark field.
 struct MainTabView: View {
     @EnvironmentObject private var router: AppRouter
 
-    init() {
-        // The default translucent material fights the paper background,
-        // and the hairline rule replaces the default blur shadow.
-        let appearance = UITabBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = UIColor(Theme.surface)
-        appearance.shadowColor = UIColor(Theme.rule)
-        UITabBar.appearance().standardAppearance = appearance
-        UITabBar.appearance().scrollEdgeAppearance = appearance
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            Theme.bg.ignoresSafeArea()
+
+            Group {
+                switch router.selectedTab {
+                case .home:     HomeView()
+                case .learn:    LearnView()
+                case .practice: PracticeHubView()
+                case .progress: ProgressDashboardView()
+                case .chart:    ChartReferenceView()
+                }
+            }
+
+            FloatingTabBar(selection: $router.selectedTab)
+        }
     }
+}
+
+struct FloatingTabBar: View {
+    @Binding var selection: AppTab
 
     var body: some View {
-        TabView(selection: $router.selectedTab) {
+        HStack(spacing: 0) {
             ForEach(AppTab.allCases) { tab in
-                content(for: tab)
-                    .tag(tab)
-                    .tabItem { Label(tab.title, systemImage: tab.symbolName) }
+                item(tab)
             }
         }
+        .frame(height: 74)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.Radius.tabBar, style: .continuous)
+                .fill(Theme.tabBar)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.tabBar, style: .continuous)
+                .strokeBorder(Theme.blueBright.opacity(0.10), lineWidth: Theme.hairline)
+        )
+        .padding(.horizontal, Theme.Space.m)
+        .padding(.bottom, Theme.Space.m)
     }
 
-    @ViewBuilder
-    private func content(for tab: AppTab) -> some View {
-        switch tab {
-        case .home:     HomeView()
-        case .learn:    LearnView()
-        case .practice: PracticeHubView()
-        case .progress: ProgressDashboardView()
-        case .chart:    ChartReferenceView()
+    private func item(_ tab: AppTab) -> some View {
+        let isOn = selection == tab
+        let isCentre = tab == .practice
+
+        return Button {
+            guard selection != tab else { return }
+            selection = tab
+            Haptics.shared.select()
+        } label: {
+            ZStack {
+                // The glow marks the primary action. Nowhere else in the app.
+                if isCentre {
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Theme.blueBright.opacity(0.55),
+                                    Theme.glow.opacity(0.35),
+                                    .clear
+                                ],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: 26
+                            )
+                        )
+                        .frame(width: 52, height: 52)
+                        .offset(y: -6)
+                }
+
+                VStack(spacing: 5) {
+                    Image(systemName: tab.symbolName)
+                        .font(.system(size: 18, weight: .regular))
+                    Text(tab.title)
+                        .font(.system(size: 11, weight: isOn ? .semibold : .regular))
+                }
+                .foregroundColor(
+                    isOn ? Theme.blueBright : (isCentre ? Theme.blueBright.opacity(0.75) : Theme.ink3)
+                )
+            }
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel(tab.title)
+        .accessibilityAddTraits(isOn ? [.isButton, .isSelected] : .isButton)
     }
 }

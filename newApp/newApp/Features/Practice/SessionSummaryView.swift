@@ -51,11 +51,11 @@ struct SessionSummaryView: View {
             Text("DEBRIEF")
                 .font(.caption.weight(.semibold))
                 .tracking(2)
-                .foregroundColor(Theme.inkSecondary)
+                .foregroundColor(Theme.ink2)
 
             VStack(spacing: 3) {
-                Rectangle().fill(Theme.rule).frame(height: Theme.hairline)
-                Rectangle().fill(Theme.rule).frame(height: Theme.hairline)
+                Rectangle().fill(Theme.track).frame(height: Theme.hairline)
+                Rectangle().fill(Theme.track).frame(height: Theme.hairline)
             }
 
             Text("\(result.correct) / \(result.total)")
@@ -64,7 +64,7 @@ struct SessionSummaryView: View {
 
             Text("\(Int(result.accuracy * 100))% accuracy")
                 .font(.subheadline)
-                .foregroundColor(Theme.inkSecondary)
+                .foregroundColor(Theme.ink2)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Theme.Space.l)
@@ -108,9 +108,9 @@ struct SessionSummaryView: View {
                 HStack(spacing: Theme.Space.m) {
                     Image(systemName: achievement.symbolName)
                         .font(.title3)
-                        .foregroundColor(Theme.accent)
+                        .foregroundColor(Theme.blue)
                         .frame(width: 40, height: 40)
-                        .overlay(Circle().strokeBorder(Theme.rule, lineWidth: 1))
+                        .overlay(Circle().strokeBorder(Theme.track, lineWidth: 1))
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(achievement.title)
@@ -118,7 +118,7 @@ struct SessionSummaryView: View {
                             .foregroundColor(Theme.ink)
                         Text(achievement.detail)
                             .font(.caption)
-                            .foregroundColor(Theme.inkSecondary)
+                            .foregroundColor(Theme.ink2)
                     }
                     Spacer(minLength: 0)
                 }
@@ -129,7 +129,7 @@ struct SessionSummaryView: View {
             if unlocked.count > 3 {
                 Text("+\(unlocked.count - 3) more")
                     .font(.caption)
-                    .foregroundColor(Theme.inkSecondary)
+                    .foregroundColor(Theme.ink2)
             }
         }
     }

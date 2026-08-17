@@ -47,7 +47,7 @@ struct EncodeStringView: View {
             if let subtitle = question.promptSubtitle {
                 Text(subtitle)
                     .font(.footnote)
-                    .foregroundColor(Theme.inkSecondary)
+                    .foregroundColor(Theme.ink2)
                     .multilineTextAlignment(.center)
             }
         }
@@ -66,7 +66,7 @@ struct EncodeStringView: View {
                                 .font(.system(.title2, design: .monospaced).weight(.medium))
                                 .foregroundColor(color(at: index))
                             Rectangle()
-                                .fill(index == position ? Theme.accent : Color.clear)
+                                .fill(index == position ? Theme.blue : Color.clear)
                                 .frame(height: 2)
                         }
                         .frame(minWidth: 22)
@@ -86,15 +86,15 @@ struct EncodeStringView: View {
     }
 
     private func color(at index: Int) -> Color {
-        if index < position { return Theme.correct }
+        if index < position { return Theme.positive }
         if index == position { return Theme.ink }
-        return Theme.inkSecondary
+        return Theme.ink2
     }
 
     private var tape: some View {
         Text(engine.sequenceProgress.joined(separator: " · "))
             .font(.system(.footnote, design: .monospaced))
-            .foregroundColor(Theme.inkSecondary)
+            .foregroundColor(Theme.ink2)
             .frame(maxWidth: .infinity, alignment: .leading)
             .lineLimit(2)
             .animation(.easeOut(duration: 0.2), value: engine.sequenceProgress.count)

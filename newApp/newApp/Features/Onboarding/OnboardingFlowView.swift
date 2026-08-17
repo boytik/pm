@@ -35,7 +35,7 @@ struct OnboardingFlowView: View {
             footer
                 .padding(Theme.Space.l)
         }
-        .background(Theme.background.ignoresSafeArea())
+        .background(Theme.bg.ignoresSafeArea())
     }
 
     // MARK: - Chrome
@@ -44,7 +44,7 @@ struct OnboardingFlowView: View {
         HStack(spacing: Theme.Space.xs) {
             ForEach(0..<pageCount, id: \.self) { index in
                 Rectangle()
-                    .fill(index <= page ? Theme.accent : Theme.rule)
+                    .fill(index <= page ? Theme.blue : Theme.track)
                     .frame(height: 3)
             }
         }
@@ -63,7 +63,7 @@ struct OnboardingFlowView: View {
             if page == 2, !name.isEmpty == false {
                 Button("Skip for now") { withAnimation { page += 1 } }
                     .font(.subheadline)
-                    .foregroundColor(Theme.inkSecondary)
+                    .foregroundColor(Theme.ink2)
             }
         }
     }
@@ -79,7 +79,7 @@ struct OnboardingFlowView: View {
             VStack(spacing: Theme.Space.s) {
                 Text("“Is that M as in Mike, or N as in November?”")
                     .font(.footnote.italic())
-                    .foregroundColor(Theme.inkSecondary)
+                    .foregroundColor(Theme.ink2)
                     .multilineTextAlignment(.center)
                 Text("B  →  BRAVO")
                     .font(.system(.title3, design: .monospaced).weight(.medium))
@@ -114,7 +114,7 @@ struct OnboardingFlowView: View {
     private func alphabetRow(_ option: PhoneticAlphabet) -> some View {
         HStack(alignment: .top, spacing: Theme.Space.m) {
             Image(systemName: alphabet == option.id ? "largecircle.fill.circle" : "circle")
-                .foregroundColor(alphabet == option.id ? Theme.accent : Theme.rule)
+                .foregroundColor(alphabet == option.id ? Theme.blue : Theme.track)
                 .font(.title3)
 
             VStack(alignment: .leading, spacing: Theme.Space.xs) {
@@ -123,11 +123,11 @@ struct OnboardingFlowView: View {
                     .foregroundColor(Theme.ink)
                 Text(option.subtitle)
                     .font(.caption)
-                    .foregroundColor(Theme.inkSecondary)
+                    .foregroundColor(Theme.ink2)
                     .multilineTextAlignment(.leading)
                 Text(option.letters.prefix(3).map(\.word).joined(separator: " · "))
                     .font(.system(.caption, design: .monospaced))
-                    .foregroundColor(Theme.accent)
+                    .foregroundColor(Theme.blue)
             }
             Spacer(minLength: 0)
         }
@@ -156,7 +156,7 @@ struct OnboardingFlowView: View {
                         Text(derivedCallsign)
                             .font(.title2.weight(.semibold))
                             .tracking(2)
-                            .foregroundColor(Theme.accent)
+                            .foregroundColor(Theme.blue)
                     }
                     .padding(Theme.Space.l)
                     .frame(maxWidth: .infinity)
@@ -181,14 +181,14 @@ struct OnboardingFlowView: View {
                         HStack {
                             Image(systemName: goalMinutes == minutes
                                   ? "largecircle.fill.circle" : "circle")
-                                .foregroundColor(goalMinutes == minutes ? Theme.accent : Theme.rule)
+                                .foregroundColor(goalMinutes == minutes ? Theme.blue : Theme.track)
                             Text("\(minutes) minutes a day")
                                 .font(.headline)
                                 .foregroundColor(Theme.ink)
                             Spacer()
                             Text("~\(minutes * 2) items")
                                 .font(.caption.monospacedDigit())
-                                .foregroundColor(Theme.inkSecondary)
+                                .foregroundColor(Theme.ink2)
                         }
                         .padding(Theme.Space.l)
                         .cardSurface()
@@ -200,7 +200,7 @@ struct OnboardingFlowView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Daily reminder").font(.headline).foregroundColor(Theme.ink)
                         Text("One quiet nudge, at a time you pick.")
-                            .font(.caption).foregroundColor(Theme.inkSecondary)
+                            .font(.caption).foregroundColor(Theme.ink2)
                     }
                 }
                 .padding(Theme.Space.l)
@@ -255,7 +255,7 @@ private struct OnboardingPage<Content: View>: View {
             VStack(spacing: Theme.Space.l) {
                 Image(systemName: symbolName)
                     .font(.system(size: 34))
-                    .foregroundColor(Theme.accent)
+                    .foregroundColor(Theme.blue)
                     .frame(width: 76, height: 76)
                     .cardSurface()
                     .padding(.top, Theme.Space.xl)
@@ -267,7 +267,7 @@ private struct OnboardingPage<Content: View>: View {
 
                 Text(message)
                     .font(.body)
-                    .foregroundColor(Theme.inkSecondary)
+                    .foregroundColor(Theme.ink2)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
 

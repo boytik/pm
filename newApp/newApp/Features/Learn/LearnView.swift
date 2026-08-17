@@ -26,9 +26,11 @@ struct LearnView: View {
                     }
                 }
                 .padding(.horizontal, Theme.Space.l)
-                .padding(.vertical, Theme.Space.l)
+                .padding(.top, Theme.Space.l)
+                // Clears the floating tab bar.
+                .padding(.bottom, Theme.tabBarClearance)
             }
-            .background(Theme.background.ignoresSafeArea())
+            .background(Theme.bg.ignoresSafeArea())
             .navigationTitle("Learn")
             .navigationDestination(for: PhoneticEntry.self) { entry in
                 LetterDetailView(entry: entry)
@@ -43,10 +45,10 @@ struct LearnView: View {
                 .foregroundColor(Theme.ink)
             Text(store.activeAlphabet.subtitle)
                 .font(.footnote)
-                .foregroundColor(Theme.inkSecondary)
+                .foregroundColor(Theme.ink2)
             Text("Tap any letter to study it. Fill height shows how well you know it.")
                 .font(.caption)
-                .foregroundColor(Theme.inkSecondary)
+                .foregroundColor(Theme.ink2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Theme.Space.l)
@@ -72,7 +74,7 @@ struct LetterDetailView: View {
             }
             .padding(Theme.Space.l)
         }
-        .background(Theme.background.ignoresSafeArea())
+        .background(Theme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
     }
 

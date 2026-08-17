@@ -24,9 +24,11 @@ struct ProgressDashboardView: View {
                     achievementsPreview
                 }
                 .padding(.horizontal, Theme.Space.l)
-                .padding(.vertical, Theme.Space.l)
+                .padding(.top, Theme.Space.l)
+                // Clears the floating tab bar.
+                .padding(.bottom, Theme.tabBarClearance)
             }
-            .background(Theme.background.ignoresSafeArea())
+            .background(Theme.bg.ignoresSafeArea())
             .navigationTitle("Progress")
             .navigationDestination(isPresented: $showAchievements) {
                 AchievementsView()
@@ -47,12 +49,13 @@ struct ProgressDashboardView: View {
                         .font(.headline)
                         .foregroundColor(Theme.ink)
                 }
-                Text("\(store.profile.xp) XP")
-                    .font(.subheadline.monospacedDigit())
-                    .foregroundColor(Theme.inkSecondary)
+                Text(verbatim: "\(store.profile.xp) XP")
+                    .font(AppFont.statValue)
+                    .monospacedDigit()
+                    .foregroundColor(Theme.ink2)
                 Text("\(store.stats.totalPracticeMinutes) minutes practised")
                     .font(.caption)
-                    .foregroundColor(Theme.inkSecondary)
+                    .foregroundColor(Theme.ink3)
             }
             Spacer(minLength: 0)
         }
@@ -94,7 +97,7 @@ struct ProgressDashboardView: View {
                         LinearMeter(fraction: accuracy.allTime, height: 6)
                         Text("\(Int(accuracy.allTime * 100))%")
                             .font(.caption.monospacedDigit())
-                            .foregroundColor(Theme.inkSecondary)
+                            .foregroundColor(Theme.ink2)
                             .frame(width: 40, alignment: .trailing)
                     }
                 }
@@ -113,7 +116,7 @@ struct ProgressDashboardView: View {
                         x: .value("Day", day.day, unit: .day),
                         y: .value("Answers", day.answered)
                     )
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Theme.blue)
                     .cornerRadius(2)
                 }
                 .chartYAxis { AxisMarks(values: .automatic(desiredCount: 3)) }
@@ -138,12 +141,12 @@ struct ProgressDashboardView: View {
                         .foregroundColor(Theme.ink)
                     Text("\(store.stats.achievementsUnlocked) of \(store.stats.achievementsTotal) unlocked")
                         .font(.caption)
-                        .foregroundColor(Theme.inkSecondary)
+                        .foregroundColor(Theme.ink2)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.caption.weight(.semibold))
-                    .foregroundColor(Theme.rule)
+                    .foregroundColor(Theme.track)
             }
             .padding(Theme.Space.l)
             .cardSurface()
@@ -176,7 +179,7 @@ struct AchievementsView: View {
             }
             .padding(Theme.Space.l)
         }
-        .background(Theme.background.ignoresSafeArea())
+        .background(Theme.bg.ignoresSafeArea())
         .navigationTitle("Achievements")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -188,11 +191,11 @@ struct AchievementsView: View {
         return VStack(spacing: Theme.Space.s) {
             Image(systemName: achievement.symbolName)
                 .font(.title3)
-                .foregroundColor(unlocked ? Theme.accent : Theme.inkSecondary.opacity(0.4))
+                .foregroundColor(unlocked ? Theme.blue : Theme.ink2.opacity(0.4))
                 .frame(width: 48, height: 48)
                 .overlay(
                     Circle().strokeBorder(
-                        unlocked ? Theme.accent : Theme.rule,
+                        unlocked ? Theme.blue : Theme.track,
                         style: unlocked
                             ? StrokeStyle(lineWidth: 1)
                             : StrokeStyle(lineWidth: 1, dash: [3, 3])
@@ -201,7 +204,7 @@ struct AchievementsView: View {
 
             Text(achievement.title)
                 .font(.caption.weight(.medium))
-                .foregroundColor(unlocked ? Theme.ink : Theme.inkSecondary)
+                .foregroundColor(unlocked ? Theme.ink : Theme.ink2)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -210,7 +213,7 @@ struct AchievementsView: View {
             // trope and helps nobody learn.
             Text(achievement.detail)
                 .font(.caption2)
-                .foregroundColor(Theme.inkSecondary)
+                .foregroundColor(Theme.ink2)
                 .multilineTextAlignment(.center)
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)

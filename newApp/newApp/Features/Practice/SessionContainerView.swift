@@ -45,7 +45,7 @@ struct SessionContainerView: View {
 
     var body: some View {
         ZStack {
-            Theme.background.ignoresSafeArea()
+            Theme.bg.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 if engine.stage == .running {
@@ -127,7 +127,7 @@ struct SessionHUD: View {
                 Button(action: onClose) {
                     Image(systemName: "xmark")
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(Theme.inkSecondary)
+                        .foregroundColor(Theme.ink2)
                         .frame(width: 44, height: 44)
                 }
                 .accessibilityLabel("Close session")
@@ -136,21 +136,30 @@ struct SessionHUD: View {
 
                 if engine.mode == .speed {
                     Text("\(engine.correctCount) correct")
-                        .font(.footnote.monospacedDigit())
-                        .foregroundColor(Theme.inkSecondary)
+                        .font(AppFont.mono(13, relativeTo: .footnote))
+                        .monospacedDigit()
+                        .foregroundColor(Theme.ink2)
                 } else {
                     Text("\(min(engine.index + 1, engine.questions.count)) / \(engine.questions.count)")
-                        .font(.footnote.monospacedDigit())
-                        .foregroundColor(Theme.inkSecondary)
+                        .font(AppFont.mono(13, relativeTo: .footnote))
+                        .monospacedDigit()
+                        .foregroundColor(Theme.ink2)
                 }
 
                 Spacer()
 
                 Group {
                     if let remaining = engine.remainingSeconds {
+                        // The timer rides its own amber chip, as in the
+                        // reference. It is the loudest small element on the
+                        // screen because running out of time is the point.
                         Text(timeString(remaining))
-                            .font(.system(size: 17, weight: .semibold, design: .monospaced))
-                            .foregroundColor(timerColor(remaining))
+                            .font(AppFont.timer)
+                            .monospacedDigit()
+                            .foregroundColor(Theme.onPaper)
+                            .padding(.horizontal, 10)
+                            .frame(height: 26)
+                            .background(Capsule().fill(timerFill(remaining)))
                             // Never let VoiceOver re-announce every tick.
                             .accessibilityHidden(true)
                     } else {
@@ -159,12 +168,13 @@ struct SessionHUD: View {
                 }
                 // Height matters: an unconstrained Color.clear is infinitely
                 // flexible vertically and stretches the whole HUD row.
-                .frame(width: 44, height: 44)
+                .frame(width: 62, height: 44)
             }
 
             LinearMeter(
                 fraction: engine.remainingSeconds.map { $0 / 60 } ?? engine.progressFraction,
-                height: 3
+                height: 3,
+                fill: engine.remainingSeconds == nil ? Theme.blueBright : Theme.amberFill
             )
         }
         .padding(.horizontal, Theme.Space.m)
@@ -176,9 +186,11 @@ struct SessionHUD: View {
         return String(format: "%d:%02d", total / 60, total % 60)
     }
 
-    private func timerColor(_ remaining: Double) -> Color {
-        if remaining < 5 { return Theme.wrong }
-        if remaining < 10 { return Theme.weak }
-        return Theme.ink
+    /// The chip warms toward the end of the run. Colour is the only signal —
+    /// nothing pulses, flashes, or grows.
+    private func timerFill(_ remaining: Double) -> Color {
+        if remaining < 5 { return Theme.negative }
+        if remaining < 10 { return Theme.amber }
+        return Theme.amberFill
     }
 }

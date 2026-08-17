@@ -23,7 +23,7 @@ struct DecodeByEarView: View {
                     if let subtitle = question.promptSubtitle {
                         Text(subtitle)
                             .font(.footnote)
-                            .foregroundColor(Theme.inkSecondary)
+                            .foregroundColor(Theme.ink2)
                             .multilineTextAlignment(.center)
                     }
 
@@ -48,13 +48,13 @@ struct DecodeByEarView: View {
                             revealed = true
                         }
                         .font(.footnote)
-                        .foregroundColor(Theme.inkSecondary)
+                        .foregroundColor(Theme.ink2)
 
                         if revealed {
                             Text(question.promptText)
                                 .font(.system(.body, design: .monospaced))
                                 .tracking(2)
-                                .foregroundColor(Theme.inkSecondary)
+                                .foregroundColor(Theme.ink2)
                         }
                     }
                 }
@@ -86,10 +86,10 @@ struct DecodeByEarView: View {
             } label: {
                 Image(systemName: speech.isSpeaking ? "pause.fill" : "play.fill")
                     .font(.system(size: 30))
-                    .foregroundColor(Theme.accent)
+                    .foregroundColor(Theme.blue)
                     .frame(width: 96, height: 96)
                     .overlay(
-                        Circle().strokeBorder(Theme.rule, lineWidth: 1.5)
+                        Circle().strokeBorder(Theme.track, lineWidth: 1.5)
                     )
             }
             .accessibilityLabel("Play sequence")
@@ -98,7 +98,7 @@ struct DecodeByEarView: View {
                  ? "Tap to listen"
                  : "Replays used: \(engine.replayCount)")
                 .font(.caption)
-                .foregroundColor(Theme.inkSecondary)
+                .foregroundColor(Theme.ink2)
         }
     }
 
@@ -126,7 +126,7 @@ struct DecodeByEarView: View {
         return VStack(spacing: Theme.Space.s) {
             Text(engine.feedback?.isCorrect == true ? "Correct" : "Not quite")
                 .font(.headline)
-                .foregroundColor(engine.feedback?.isCorrect == true ? Theme.correct : Theme.wrong)
+                .foregroundColor(engine.feedback?.isCorrect == true ? Theme.positive : Theme.negative)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: Theme.Space.xs) {
@@ -135,11 +135,11 @@ struct DecodeByEarView: View {
                         VStack(spacing: 2) {
                             Text(String(character))
                                 .font(.system(.title3, design: .monospaced))
-                                .foregroundColor(matched ? Theme.correct : Theme.wrong)
+                                .foregroundColor(matched ? Theme.positive : Theme.negative)
                             if !matched {
                                 Text(index < givenChars.count ? String(givenChars[index]) : "–")
                                     .font(.caption2.monospaced())
-                                    .foregroundColor(Theme.inkSecondary)
+                                    .foregroundColor(Theme.ink2)
                             }
                         }
                         .frame(minWidth: 20)

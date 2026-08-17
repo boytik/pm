@@ -2,9 +2,12 @@
 //  Theme.swift
 //  Alpha Academy
 //
-//  Academic / aviation-chart palette. Muted, typographic, precise.
-//  Every colour is defined here in both light and dark form so the values
-//  are reviewable in one place rather than buried in the asset catalog.
+//  Dark instrument system. See DESIGN.md — this file is the code side of it.
+//
+//  Two rules that the rest of the app depends on:
+//    - Depth comes from tone, never from shadow. A card is lighter or bluer
+//      than its field; nothing is ever floated.
+//    - Exactly one `hot` element and exactly one `paper` surface per screen.
 //
 
 import SwiftUI
@@ -12,40 +15,61 @@ import UIKit
 
 enum Theme {
 
-    // MARK: - Colour
+    // MARK: - Surfaces
 
-    /// Warm paper ground the whole app sits on.
-    static let background = dynamic(light: 0xF5F2EC, dark: 0x131211)
+    /// Page field. Everything sits on this.
+    static let bg = Color(hex: 0x11162C)
 
-    /// Cards, rows, and the letter card face.
-    static let surface = dynamic(light: 0xFDFBF7, dark: 0x1D1B19)
+    /// Standard card. Lighter than the field.
+    static let surface = Color(hex: 0x1C2137)
 
-    /// Slightly recessed surface for grouped rows inside a card.
-    static let surfaceSunken = dynamic(light: 0xEFEAE1, dark: 0x24211E)
+    /// Session surfaces. Deeper and bluer, not darker.
+    static let surfaceDeep = Color(hex: 0x061944)
 
-    /// Primary text.
-    static let ink = dynamic(light: 0x1C1B19, dark: 0xEDE9E0)
+    /// Rows nested inside a deep card.
+    static let surfaceDeepAlt = Color(hex: 0x14264E)
 
-    /// Secondary text, captions, respellings.
-    static let inkSecondary = dynamic(light: 0x6B6862, dark: 0x9A948A)
+    /// Floating tab bar. The darkest thing on screen.
+    static let tabBar = Color(hex: 0x0D1021)
 
-    /// Hairline borders. The app uses strokes, never soft shadows.
-    static let rule = dynamic(light: 0xD8D2C6, dark: 0x34312C)
+    /// Neutral chips and badges.
+    static let chipNeutral = Color(hex: 0x282D41)
 
-    /// The single accent — a desaturated chart navy.
-    static let accent = dynamic(light: 0x2C4A63, dark: 0x7FA8C9)
+    /// The one light surface. Letter cards only.
+    static let paper = Color(hex: 0xB6CCFB)
 
-    /// Accent wash for fills behind the accent colour.
-    static let accentSoft = dynamic(light: 0xE3EAF0, dark: 0x23303B)
+    // MARK: - Accents
 
-    /// "Weak / due for review" amber.
-    static let weak = dynamic(light: 0xB8873A, dark: 0xD6A85C)
+    /// Flat fill, no gradient, no glow. Exactly one per screen.
+    static let hot = Color(hex: 0xD26A05)
+    static let hotPressed = Color(hex: 0xB35309)
 
-    /// Correct-answer green. Muted on purpose — no arcade green.
-    static let correct = dynamic(light: 0x3E6B4F, dark: 0x6FA37E)
+    /// All other interactivity. Mastery fill.
+    static let blue = Color(hex: 0x2459F5)
 
-    /// Wrong-answer rust. Muted on purpose — no alarm red.
-    static let wrong = dynamic(light: 0xA34E38, dark: 0xC87A62)
+    /// Active tab item, combo multiplier.
+    static let blueBright = Color(hex: 0x448DFF)
+
+    /// Radial glow under the centre tab item. Nowhere else.
+    static let glow = Color(hex: 0x1B3A71)
+
+    // MARK: - Semantic (one value per role)
+
+    static let positive = Color(hex: 0x77D2B4)
+    static let negative = Color(hex: 0xF0616B)
+    static let amber = Color(hex: 0xEFC26A)
+    /// Timer chip fill only. Dark text on top.
+    static let amberFill = Color(hex: 0xFFE047)
+    /// Empty half of every meter, tile and progress bar.
+    static let track = Color(hex: 0x2B3350)
+
+    // MARK: - Text
+
+    static let ink = Color(hex: 0xF2F5FF)
+    static let ink2 = Color(hex: 0x8B90AB)
+    static let ink3 = Color(hex: 0x6A6F85)
+    static let onPaper = Color(hex: 0x0B1220)
+    static let onPaper2 = Color(hex: 0x3C4A6B)
 
     // MARK: - Metrics
 
@@ -54,54 +78,57 @@ enum Theme {
         static let s: CGFloat = 8
         static let m: CGFloat = 12
         static let l: CGFloat = 16
+        static let block: CGFloat = 14
         static let xl: CGFloat = 24
         static let xxl: CGFloat = 32
     }
 
     enum Radius {
-        static let small: CGFloat = 8
-        static let card: CGFloat = 12
-        static let large: CGFloat = 20
+        static let tile: CGFloat = 9
+        static let button: CGFloat = 14
+        static let card: CGFloat = 20
+        static let tabBar: CGFloat = 28
     }
 
-    /// Hairline stroke width. One physical pixel on every current device.
+    /// Height of the floating tab bar plus its bottom inset, so scroll
+    /// content can clear it.
+    static let tabBarClearance: CGFloat = 98
+
     static let hairline: CGFloat = 1
-
-    // MARK: - Helpers
-
-    nonisolated static func dynamic(light: UInt32, dark: UInt32) -> Color {
-        Color(uiColor: UIColor { traits in
-            traits.userInterfaceStyle == .dark ? UIColor(hex: dark) : UIColor(hex: light)
-        })
-    }
 }
 
-extension UIColor {
-    fileprivate convenience init(hex: UInt32) {
+extension Color {
+    init(hex: UInt32) {
         self.init(
-            red: CGFloat((hex >> 16) & 0xFF) / 255,
-            green: CGFloat((hex >> 8) & 0xFF) / 255,
-            blue: CGFloat(hex & 0xFF) / 255,
-            alpha: 1
+            .sRGB,
+            red: Double((hex >> 16) & 0xFF) / 255,
+            green: Double((hex >> 8) & 0xFF) / 255,
+            blue: Double(hex & 0xFF) / 255,
+            opacity: 1
         )
     }
 }
 
-// MARK: - Shared surface treatment
+// MARK: - Surface treatments
 
 extension View {
-    /// The standard bordered card: warm surface, hairline rule, no shadow.
+    /// Standard card: lighter than the field, no border, no shadow.
     func cardSurface(
         radius: CGFloat = Theme.Radius.card,
         fill: Color = Theme.surface
     ) -> some View {
         background(
-            RoundedRectangle(cornerRadius: radius, style: .continuous)
-                .fill(fill)
+            RoundedRectangle(cornerRadius: radius, style: .continuous).fill(fill)
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: radius, style: .continuous)
-                .strokeBorder(Theme.rule, lineWidth: Theme.hairline)
-        )
+    }
+
+    /// Session surface: deeper and bluer than the field.
+    func deepSurface(radius: CGFloat = Theme.Radius.card) -> some View {
+        cardSurface(radius: radius, fill: Theme.surfaceDeep)
+    }
+
+    /// The one light surface. Reserved for the letter.
+    func paperSurface(radius: CGFloat = Theme.Radius.card) -> some View {
+        cardSurface(radius: radius, fill: Theme.paper)
     }
 }

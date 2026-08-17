@@ -119,39 +119,52 @@ only and never carries information a user must read; the value beneath it always
 
 Three families, three jobs. Never more.
 
-- **Display / the letter:** **Instrument Serif** (OFL, bundled ~150 KB) — used *only* on
-  the light plate and in mastery tiles. This is what makes the card read as a printed
-  specimen instead of a UI panel, and it is the one element a competitor cannot copy
-  without rebuilding their whole app.
-- **Interface and headings:** **General Sans** (Fontshare, bundled) for screen titles and
-  card headings. **SF Pro** (system) for body copy and controls, so Dynamic Type behaves
-  natively.
-- **Numbers:** **IBM Plex Mono** (OFL, bundled) with tabular figures. Every numeral the
-  user reads: timer, score, combo multiplier, XP, percentages, counts. Also carries the
-  pronunciation key (`BRAH-VOH`) and the encode target string (`BK7291`).
+- **Display / the letter:** **Instrument Serif** (OFL, bundled, 62 KB) — used *only* on
+  the light plate, in mastery tiles, and in the Chart table's symbol column. This is what
+  makes the card read as a printed specimen instead of a UI panel, and it is the one
+  element a competitor cannot copy without rebuilding their whole app.
+- **Interface and headings:** **SF Pro** (system). Screen titles, card headings, body copy
+  and controls all sit on the system face so Dynamic Type behaves natively.
+- **Numbers:** **IBM Plex Mono** (OFL, bundled, Regular 129 KB + SemiBold 133 KB) with
+  tabular figures. Every numeral the user reads: timer, score, combo multiplier, XP,
+  percentages, counts. Also carries the pronunciation key (`BRAH-VOH`) and the encode
+  target string (`BK7291`).
 - **Never used:** SF Mono (reads as Xcode), any rounded face (reads as a toy), Inter,
   Poppins, Montserrat, Space Grotesk.
 
-**Bundling:** drop `.otf` files anywhere under `newApp/newApp/` — the target uses
-`PBXFileSystemSynchronizedRootGroup`, so they are added as resources automatically. Register
-them under `UIAppFonts` in `Info.plist`. Add the OFL attribution to the Settings → About screen.
+**Bundling:** drop `.ttf` files anywhere under `newApp/newApp/` — the target uses
+`PBXFileSystemSynchronizedRootGroup`, so they are added as resources automatically.
+
+> **`UIAppFonts` must list bare filenames, not paths.** The synchronized group copies
+> resources **flat** into the bundle root regardless of the folder they live in on disk.
+> A path like `Resources/Fonts/X.ttf` fails silently: the font never registers, and every
+> `.custom()` call falls back to the system face with no warning and no log line. The
+> DEBUG self-check asserts registration for exactly this reason.
+
+Total bundled type: **324 KB**. Attribution for both OFL faces belongs in Settings → About.
 
 ### Scale
 
 | Role | Font | Size | Weight | Treatment |
 |---|---|---|---|---|
-| Letter glyph (hero) | Instrument Serif | 120 | regular | On `paper`, capped at 150, drops to 64 at accessibility sizes |
-| Letter glyph (tile) | Instrument Serif | 19 | regular | Mastery grid |
-| Screen title | General Sans | 26 | 600 | `-0.3` tracking |
-| Card heading | General Sans | 17 | 600 | |
-| Code word | General Sans | 19 | 600 | Uppercase, `+3` tracking |
+| Letter glyph (hero) | Instrument Serif | 120 | regular | On `paper`, capped at 150, drops to 64 at accessibility sizes. **Constrain the frame to `size × 0.86`** — the face carries a generous line box and the plate otherwise grows to twice the glyph height |
+| Letter glyph (quiz prompt) | Instrument Serif | 104 | regular | Same frame constraint |
+| Letter glyph (tile / chart) | Instrument Serif | 21 / 24 | regular | |
+| Screen title | SF Pro | 26 | semibold | `-0.3` tracking |
+| Card heading | SF Pro | 17 | semibold | |
+| Code word | SF Pro | 19 | semibold | Uppercase, `+3` tracking |
 | Body | SF Pro | 15–17 | regular | |
-| Big numeral | IBM Plex Mono | 34 | 600 | `-1` tracking, tabular |
-| Stat value | IBM Plex Mono | 15 | 600 | Tabular |
-| Timer | IBM Plex Mono | 15 | 600 | On `amberFill` chip |
+| Big numeral | IBM Plex Mono | 34 | semibold | `-1` tracking, tabular |
+| Stat value | IBM Plex Mono | 15 | semibold | Tabular |
+| Score readout | IBM Plex Mono | 22 | semibold | Tabular |
+| Timer | IBM Plex Mono | 15 | semibold | On the `amberFill` chip |
 | Pronunciation key | IBM Plex Mono | 13 | regular | `+1.5` tracking |
-| Micro-label | General Sans | 10 | 600 | Uppercase, `+1.3` tracking, `ink3` |
-| Caption | SF Pro | 12 | regular | `ink2` |
+| Micro-label | SF Pro | 10 | semibold | Uppercase, `+1.3` tracking, `ink3` |
+| Caption | SF Pro | 12 | regular | `ink2` / `ink3` |
+
+> **Integer interpolation inserts grouping separators.** `Text("\(xp) XP")` runs the Int
+> through a number formatter and renders `2340` as `2 340`, which breaks monospaced
+> alignment. Use `Text(verbatim:)` for any numeral in a mono readout.
 
 ## Spacing
 
@@ -236,6 +249,9 @@ corner radius.
 | 2026-08-17 | Instrument Serif for the letter glyph | The light plate already breaks the reference's all-sans rule by existing. A serif makes it a printed specimen rather than a card component, and it is the only element in this category that could be recognised as ours. |
 | 2026-08-17 | Unified two greens into `positive`, three ambers into `amber` + `amberFill` | The reference uses hue 140 and hue 162 for the same job. Copying that defect would cost us in six months. |
 | 2026-08-17 | `paper` kept at reference periwinkle `#B6CCFB` | Faithful to the supplied reference. A warm-paper variant (`#EDE8DC`) was considered and deferred; revisit after seeing the plate on real hardware. |
+| 2026-08-17 | Implemented in code | `Theme.swift` and `Typography.swift` rewritten, three faces bundled, floating tab bar with a glowing centre item replaces `TabView` chrome, letter plate and quiz prompt moved onto `paper`. Verified on an iPhone 17 Pro simulator. |
+| 2026-08-17 | Dropped General Sans; headings use SF Pro | A third bundled family for screen titles and card headings only, at ~200 KB, buys almost nothing over SF Pro semibold at those sizes. The differentiator is the serif glyph, not the headings. |
+| 2026-08-17 | Custom `FloatingTabBar` instead of `TabView` | The reference's floating pill with a radial glow under the centre item cannot be expressed through `UITabBarAppearance`, and the system bar fights the dark field. Cost: tab screens must add `Theme.tabBarClearance` bottom padding themselves. |
 | 2026-08-17 | Chart stays the fifth tab | Research suggests promoting it to first would match the real moment of use (mid-call, one-handed). Not adopted in this pass — it is a product IA change, not a design system change. Open. |
 
 ## Open Items

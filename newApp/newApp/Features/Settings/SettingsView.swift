@@ -38,7 +38,7 @@ struct SettingsView: View {
                     }
                     Text(store.activeAlphabet.provenance)
                         .font(.caption2)
-                        .foregroundColor(Theme.inkSecondary)
+                        .foregroundColor(Theme.ink2)
                 }
 
                 Section("Audio") {
@@ -112,7 +112,7 @@ struct SettingsView: View {
                 }
             }
             .scrollContentBackground(.hidden)
-            .background(Theme.background.ignoresSafeArea())
+            .background(Theme.bg.ignoresSafeArea())
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

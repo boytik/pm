@@ -21,9 +21,11 @@ struct HomeView: View {
                     lastSession
                 }
                 .padding(.horizontal, Theme.Space.l)
-                .padding(.vertical, Theme.Space.l)
+                .padding(.top, Theme.Space.l)
+                // Clears the floating tab bar.
+                .padding(.bottom, Theme.tabBarClearance)
             }
-            .background(Theme.background.ignoresSafeArea())
+            .background(Theme.bg.ignoresSafeArea())
             .navigationTitle("Alpha Academy")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -49,28 +51,32 @@ struct HomeView: View {
                     .tracking(1.4)
                     .foregroundColor(Theme.ink)
                 Spacer()
-                Text("\(profile.xp) XP")
-                    .font(.caption.monospacedDigit())
-                    .foregroundColor(Theme.inkSecondary)
+                // verbatim: SwiftUI's LocalizedStringKey interpolation runs
+                // Ints through a number formatter and inserts grouping
+                // separators, so "2340" renders as "2 340".
+                Text(verbatim: "\(profile.xp) XP")
+                    .font(AppFont.mono(12, relativeTo: .caption))
+                    .monospacedDigit()
+                    .foregroundColor(Theme.ink2)
             }
 
             if !profile.callsign.isEmpty {
                 Text(profile.callsign)
                     .font(.title3.weight(.semibold))
                     .tracking(1.5)
-                    .foregroundColor(Theme.accent)
+                    .foregroundColor(Theme.blueBright)
             }
 
             LinearMeter(fraction: profile.rankProgress, height: 6)
 
             if let next = profile.rank.next {
-                Text("\(max(0, next.threshold - profile.xp)) XP to \(next.title)")
+                Text(verbatim: "\(max(0, next.threshold - profile.xp)) XP to \(next.title)")
                     .font(.caption)
-                    .foregroundColor(Theme.inkSecondary)
+                    .foregroundColor(Theme.ink3)
             } else {
                 Text("Top rank reached.")
                     .font(.caption)
-                    .foregroundColor(Theme.inkSecondary)
+                    .foregroundColor(Theme.ink3)
             }
         }
         .padding(Theme.Space.l)
@@ -92,13 +98,13 @@ struct HomeView: View {
                         .foregroundColor(Theme.ink)
                     Text("About \(store.profile.dailyGoalMinutes) minutes")
                         .font(.caption)
-                        .foregroundColor(Theme.inkSecondary)
+                        .foregroundColor(Theme.ink2)
                 }
                 Spacer()
                 if done {
                     Image(systemName: "checkmark.seal")
                         .font(.title2)
-                        .foregroundColor(Theme.correct)
+                        .foregroundColor(Theme.positive)
                 }
             }
 
@@ -159,7 +165,7 @@ struct HomeView: View {
                 if store.stats.untouchedCount > 0 {
                     Text("\(store.stats.untouchedCount) symbols not started yet")
                         .font(.caption)
-                        .foregroundColor(Theme.inkSecondary)
+                        .foregroundColor(Theme.ink2)
                 }
             }
         }
@@ -177,12 +183,12 @@ struct HomeView: View {
                             .foregroundColor(Theme.ink)
                         Text(session.date.formatted(date: .abbreviated, time: .shortened))
                             .font(.caption)
-                            .foregroundColor(Theme.inkSecondary)
+                            .foregroundColor(Theme.ink2)
                     }
                     Spacer()
                     Text("\(session.correct)/\(session.total)")
                         .font(.headline.monospacedDigit())
-                        .foregroundColor(Theme.accent)
+                        .foregroundColor(Theme.blue)
                 }
                 .padding(Theme.Space.l)
                 .cardSurface()

@@ -8,6 +8,17 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
+	<!-- Bare filenames, not paths. The target uses a file-system synchronized
+	     group, which copies resources FLAT into the bundle root regardless of
+	     the folder they live in on disk. A subfolder path here fails silently:
+	     the font never registers and every .custom() call falls back to the
+	     system face with no warning. -->
+	<key>UIAppFonts</key>
+	<array>
+		<string>InstrumentSerif-Regular.ttf</string>
+		<string>IBMPlexMono-Regular.ttf</string>
+		<string>IBMPlexMono-SemiBold.ttf</string>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

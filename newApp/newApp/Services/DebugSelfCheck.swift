@@ -13,6 +13,7 @@
 
 #if DEBUG
 import Foundation
+import UIKit
 
 enum DebugSelfCheck {
 
@@ -30,6 +31,17 @@ enum DebugSelfCheck {
                 failures.append(name)
                 print("FAIL \(name) — \(detail)")
             }
+        }
+
+        // 0 — bundled fonts actually registered.
+        //
+        // SwiftUI's .custom() falls back to the system face silently when a
+        // font is missing, so without this check a broken UIAppFonts entry
+        // ships looking merely "a bit off".
+        for family in ["Instrument Serif", "IBM Plex Mono", "IBM Plex Mono SemiBold"] {
+            let names = UIFont.fontNames(forFamilyName: family)
+            check("font registered: \(family)", !names.isEmpty,
+                  "UIFont.fontNames returned empty — check UIAppFonts uses bare filenames")
         }
 
         // 1 — alphabet data integrity.

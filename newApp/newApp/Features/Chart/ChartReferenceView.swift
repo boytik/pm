@@ -32,14 +32,17 @@ struct ChartReferenceView: View {
                     section("Numbers", entries: filtered(alphabet.digits))
                     section("Symbols", entries: filtered(alphabet.punctuation))
 
+                    // The citation is the strongest "this is real reference
+                    // material" artefact in the app. Do not cut it.
                     Text(alphabet.provenance)
                         .font(.caption2)
-                        .foregroundColor(Theme.inkSecondary)
+                        .foregroundColor(Theme.ink3)
                         .padding(.horizontal, Theme.Space.l)
-                        .padding(.vertical, Theme.Space.xl)
+                        .padding(.top, Theme.Space.xl)
+                        .padding(.bottom, Theme.tabBarClearance)
                 }
             }
-            .background(Theme.background.ignoresSafeArea())
+            .background(Theme.bg.ignoresSafeArea())
             .searchable(text: $query, prompt: "Search letter or word")
             .navigationTitle("Chart")
             .toolbar { alphabetMenu }
@@ -53,7 +56,7 @@ struct ChartReferenceView: View {
                 ForEach(entries) { entry in
                     row(entry)
                     Rectangle()
-                        .fill(Theme.rule)
+                        .fill(Theme.track)
                         .frame(height: Theme.hairline)
                         .padding(.leading, Theme.Space.l)
                 }
@@ -64,7 +67,7 @@ struct ChartReferenceView: View {
                 }
                 .padding(.horizontal, Theme.Space.l)
                 .padding(.vertical, Theme.Space.s)
-                .background(Theme.background)
+                .background(Theme.bg)
             }
         }
     }
@@ -77,7 +80,7 @@ struct ChartReferenceView: View {
         } label: {
             HStack(spacing: Theme.Space.m) {
                 Text(entry.symbol)
-                    .font(.system(.title3, design: .serif))
+                    .font(AppFont.glyph(24))
                     .foregroundColor(Theme.ink)
                     .frame(width: 30, alignment: .leading)
 
@@ -88,8 +91,7 @@ struct ChartReferenceView: View {
                 Spacer(minLength: Theme.Space.s)
 
                 Text(entry.respelling)
-                    .font(.system(.footnote, design: .monospaced))
-                    .foregroundColor(Theme.inkSecondary)
+                    .respellingStyle(Theme.ink3)
                     .lineLimit(1)
 
                 if entry.kind != .punctuation {
