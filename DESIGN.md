@@ -215,6 +215,55 @@ Total bundled type: **324 KB**. Attribution for both OFL faces belongs in Settin
 - **Reduce Motion:** shake becomes a 150ms crossfade, mastery fill becomes instant,
   summary stagger becomes a single fade.
 
+## Settings
+
+Built from the design system, **not** from `Form`. The stock inset-grouped list carries
+its own greys, separators and corner radii; `.scrollContentBackground(.hidden)` hides the
+backdrop but the rows still read as a different app. Components live in
+`DesignSystem/Components/SettingsComponents.swift`: `SettingsGroup`, `SettingsRow`,
+`RowDivider`, `RowValue`, `SettingsToggleRow`, `SettingsSegmentedRow`.
+
+Rules: rows are 52 pt minimum; leading icons are `blue` and 22 pt wide; dividers inset
+past the icon; a destructive row tints its label *and* its icon `negative`; segmented
+choices are accent-filled pills, never the system's grey capsule.
+
+## Avatar
+
+Three forms, one circle: **initials** (derived from the callsign, in Instrument Serif, so
+even the default is on-theme), a **curated icon** from an aviation/radio set, or a
+**photo**.
+
+- Tints are constrained to five palette values (`AvatarTint`). A free colour picker would
+  let the user paint themselves outside the system.
+- The photo is a JPEG on disk at ≤512 px, never base64 inside the state JSON — image data
+  there would multiply the file and force a full rewrite on every debounced save.
+- Photo selection uses `PhotosPicker`, which runs out of process and grants the app no
+  library access. **This adds no permission prompt and no `NSPhotoLibraryUsageDescription`.**
+  In this category the apps badged *Data Not Collected* are the ones rated 5.0 — keep it
+  that way.
+
+## Print — the shared record
+
+The exported PDF is the **light counterpart** of the app, not a screenshot of it. In this
+system `paper` is the printed artefact, so the record is the plate at full-page size. A
+dark PDF would also be miserable to print.
+
+Print-only palette (`PrintTheme`, the only colours outside the on-screen system):
+page `#F3F6FC` · plate `#B6CCFB` · ink `#0B1220` · ink2 `#3C4A6B` · ink3 `#8592B0` ·
+rule `#C7D3E8` · accent `#1F49C4` · track `#D9E1F2`.
+
+A4 at 72 dpi (595 × 842). Structure: masthead with the serif A plate, identity block with
+avatar and callsign, five mono stat cells, the mastery grid at 13 columns (26 letters land
+as exactly two rows, digits as a third), per-mode accuracy bars, the full alphabet
+reference in three columns, and a footer carrying the ICAO citation.
+
+The reference strip is not filler. The real moment of use is mid-phone-call, so a printed
+record you can pin to a monitor is worth more than white space.
+
+> **Do not flip the context when rendering.** `ImageRenderer`'s render callback already
+> applies the top-left-origin transform. Adding the usual CoreGraphics bottom-up flip
+> cancels it and the whole page comes out mirrored.
+
 ## Accessibility
 
 - The 120pt glyph uses a capped `ScaledMetric` and drops to 64pt at accessibility sizes —
@@ -252,6 +301,11 @@ corner radius.
 | 2026-08-17 | Implemented in code | `Theme.swift` and `Typography.swift` rewritten, three faces bundled, floating tab bar with a glowing centre item replaces `TabView` chrome, letter plate and quiz prompt moved onto `paper`. Verified on an iPhone 17 Pro simulator. |
 | 2026-08-17 | Dropped General Sans; headings use SF Pro | A third bundled family for screen titles and card headings only, at ~200 KB, buys almost nothing over SF Pro semibold at those sizes. The differentiator is the serif glyph, not the headings. |
 | 2026-08-17 | Custom `FloatingTabBar` instead of `TabView` | The reference's floating pill with a radial glow under the centre item cannot be expressed through `UITabBarAppearance`, and the system bar fights the dark field. Cost: tab screens must add `Theme.tabBarClearance` bottom padding themselves. |
+| 2026-08-17 | Settings rebuilt from the design system | The stock `Form` carries its own greys, separators and radii; hiding the backdrop is not enough to make it belong. |
+| 2026-08-17 | Avatar added: initials, curated icon, or photo | Personalisation without an account. Tints constrained to the palette; photo via `PhotosPicker`, which adds no permission prompt. |
+| 2026-08-17 | Shared record is a light PDF, not a dark one | `paper` is the printed artefact in this system, and a dark A4 is miserable to print. Print-only palette documented above. |
+| 2026-08-17 | Record carries the full alphabet reference | Fills the page with the thing the user actually needs mid-call, instead of white space. |
+| 2026-08-17 | App Store ID left nil until the listing exists | Share falls back to the description with no link. Shipping a dead URL to everyone the user invites is worse than shipping no URL. |
 | 2026-08-17 | Chart stays the fifth tab | Research suggests promoting it to first would match the real moment of use (mid-call, one-handed). Not adopted in this pass — it is a product IA change, not a design system change. Open. |
 
 ## Open Items

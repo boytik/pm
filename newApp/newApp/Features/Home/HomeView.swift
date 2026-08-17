@@ -36,6 +36,14 @@ struct HomeView: View {
                 }
             }
             .sheet(isPresented: $showSettings) { SettingsView() }
+            .onAppear {
+                #if DEBUG
+                // SIMCTL_CHILD_AA_OPEN_SETTINGS=1 opens the sheet on launch.
+                if ProcessInfo.processInfo.environment["AA_OPEN_SETTINGS"] == "1" {
+                    showSettings = true
+                }
+                #endif
+            }
         }
     }
 
@@ -45,6 +53,8 @@ struct HomeView: View {
         let profile = store.profile
         return VStack(alignment: .leading, spacing: Theme.Space.m) {
             HStack(spacing: Theme.Space.s) {
+                AvatarView(profile: profile, size: 34)
+                    .padding(.trailing, Theme.Space.xs)
                 RankInsigniaView(rank: profile.rank)
                 Text(profile.rank.title.uppercased())
                     .font(.caption.weight(.semibold))

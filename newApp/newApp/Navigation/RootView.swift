@@ -30,6 +30,18 @@ struct RootView: View {
         .task {
             #if DEBUG
             if DebugSelfCheck.isRequested { DebugSelfCheck.run(on: store) }
+            // Lets QA inspect the exported record without tapping through:
+            //   SIMCTL_CHILD_AA_EXPORT_PDF=1 xcrun simctl launch --console-pty …
+            if ProcessInfo.processInfo.environment["AA_EXPORT_PDF"] == "1" {
+                do {
+                    let url = try ReportExporter.exportPDF(
+                        model: ReportExporter.model(from: store)
+                    )
+                    print("PDF_EXPORTED \(url.path)")
+                } catch {
+                    print("PDF_EXPORT_FAILED \(error)")
+                }
+            }
             #endif
             // Hold the splash briefly so it does not flash and vanish.
             try? await Task.sleep(nanoseconds: 900_000_000)
