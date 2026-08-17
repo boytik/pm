@@ -19,9 +19,23 @@
 		<string>IBMPlexMono-Regular.ttf</string>
 		<string>IBMPlexMono-SemiBold.ttf</string>
 	</array>
+	<!-- `fetch` — and only `fetch` — because BGAppRefreshTask requires it. There
+	     is no APNs in this app, so `remote-notification` was removed: declaring a
+	     background mode nothing uses is a review rejection waiting to happen.
+	     OPEN QUESTION (17.08.2026): background polling itself is still under
+	     review — see "Open questions" in CLAUDE.md. If it is dropped, delete this
+	     key together with BGTaskSchedulerPermittedIdentifiers below. -->
 	<key>UIBackgroundModes</key>
 	<array>
-		<string>remote-notification</string>
+		<string>fetch</string>
 	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>j.newApp.push.refresh</string>
+	</array>
+	<!-- Required before ATTrackingManager will show anything. Without it the
+	     prompt never appears and the request silently resolves to .denied. -->
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Allows us to measure which campaigns bring learners to Alpha Academy, so we can keep improving the training.</string>
 </dict>
 </plist>

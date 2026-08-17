@@ -4,7 +4,6 @@
 //
 
 import SwiftUI
-import UserNotifications
 
 struct OnboardingFlowView: View {
     @EnvironmentObject private var store: AppStore
@@ -226,19 +225,24 @@ struct OnboardingFlowView: View {
             alphabet: alphabet
         )
 
-        // Only ask for notifications if the learner explicitly opted in.
-        // Never at launch, never on the first screen — a "not now" would
-        // burn the one system prompt we get.
-        if wantsReminder {
-            Task {
-                let granted = (try? await UNUserNotificationCenter.current()
-                    .requestAuthorization(options: [.alert, .sound])) ?? false
-                store.updateProfile { $0.remindersEnabled = granted }
-                if granted { NotificationService.reschedule(profile: store.profile) }
-                router.phase = .main
+        // Never at launch, never on the first screen — a "not now" would burn
+        // the one system prompt we get. But it is asked regardless of the
+        // toggle: the toggle governs the daily drills, while notification
+        // permission also gates the Pocket Alpha funnel (PushInbox), which
+        // cannot show anything without it.
+        Task {
+            let granted = await NotificationService.requestAuthorization()
+            store.updateProfile { $0.remindersEnabled = wantsReminder && granted }
+            if wantsReminder, granted {
+                NotificationService.reschedule(profile: store.profile)
             }
-        } else {
             router.phase = .main
+            // The app is already foregrounded, so no scenePhase change is coming
+            // to kick this off — without it the first funnel push would wait for
+            // the next launch.
+            if granted {
+                await PushInbox.shared.pollIfDue(reason: .foreground)
+            }
         }
     }
 }

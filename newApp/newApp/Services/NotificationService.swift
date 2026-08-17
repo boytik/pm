@@ -19,6 +19,10 @@ enum NotificationService {
         "Your weakest letters are waiting."
     ]
 
+    /// Identifiers this service owns. Removal is scoped to them so it cannot
+    /// wipe the funnel's `push.*` notifications, which live in the same centre.
+    private static var drillIdentifiers: [String] { (0..<7).map { "drill.\($0)" } }
+
     static func currentStatus() async -> UNAuthorizationStatus {
         await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
     }
@@ -34,7 +38,7 @@ enum NotificationService {
     /// launch makes the whole thing self-healing.
     static func reschedule(profile: UserProfile, now: Date = Date()) {
         let center = UNUserNotificationCenter.current()
-        center.removeAllPendingNotificationRequests()
+        center.removePendingNotificationRequests(withIdentifiers: drillIdentifiers)
 
         guard profile.remindersEnabled else { return }
 
@@ -71,7 +75,9 @@ enum NotificationService {
         }
     }
 
+    /// Cancels the daily drills only — see `drillIdentifiers`.
     static func cancelAll() {
-        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+        UNUserNotificationCenter.current()
+            .removePendingNotificationRequests(withIdentifiers: drillIdentifiers)
     }
 }

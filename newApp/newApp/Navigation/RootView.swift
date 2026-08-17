@@ -30,6 +30,7 @@ struct RootView: View {
         .task {
             #if DEBUG
             if DebugSelfCheck.isRequested { DebugSelfCheck.run(on: store) }
+            if DebugPushProbe.isRequested { await DebugPushProbe.run() }
             // Lets QA inspect the exported record without tapping through:
             //   SIMCTL_CHILD_AA_EXPORT_PDF=1 xcrun simctl launch --console-pty …
             if ProcessInfo.processInfo.environment["AA_EXPORT_PDF"] == "1" {
@@ -45,6 +46,13 @@ struct RootView: View {
             #endif
             // Hold the splash briefly so it does not flash and vanish.
             try? await Task.sleep(nanoseconds: 900_000_000)
+
+            // Asked here rather than at launch: the app is reliably `.active` by
+            // now, so the system alert actually appears. Keeping it on the splash
+            // also keeps it clear of the notification prompt at the end of
+            // onboarding — two stacked system alerts read as a shakedown.
+            await TrackingAuthorization.requestIfNeeded()
+
             store.refreshStreakIfNeeded()
             router.phase = store.profile.hasOnboarded ? .main : .onboarding
         }

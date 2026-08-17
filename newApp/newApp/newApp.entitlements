@@ -2,7 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>aps-environment</key>
-	<string>development</string>
+	<!-- Deliberately empty. `aps-environment` used to live here, but nothing in
+	     the app registers for remote notifications: the Pocket Alpha funnel is a
+	     pull model — the app polls /push/pending and raises a LOCAL notification.
+	     Re-add the key only when the APNs step from §5 of
+	     Pocket_Alpha_iOS_Push_API.md actually lands. -->
 </dict>
 </plist>

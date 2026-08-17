@@ -187,6 +187,52 @@ enum DebugSelfCheck {
         check("nothing unlocks on an empty profile", unlockedOnEmpty.isEmpty,
               unlockedOnEmpty.map(\.id).joined(separator: ","))
 
+        // 11 — the Pocket Alpha push contract decodes.
+        //
+        // Verbatim samples from §2 of Pocket_Alpha_iOS_Push_API.md. The one that
+        // matters is `action: null`: it is legal, and a non-optional field there
+        // would drop every actionless push on the floor at runtime.
+        let emptyJSON = #"{"has_push": false, "next_poll_after_sec": 900, "reason": "in_app"}"#
+        let empty = try? JSONDecoder().decode(
+            PendingPushResponse.self, from: Data(emptyJSON.utf8)
+        )
+        check("push: empty response decodes",
+              empty?.hasPush == false && empty?.nextPollAfterSec == 900,
+              "got \(String(describing: empty))")
+
+        let fullJSON = """
+        {"has_push": true, "next_poll_after_sec": 900, "push": {
+          "delivery_id": "fb1266a314944604b3f003803ba63b46", "post_id": 20,
+          "title": "T", "body": "B", "action": null, "lang": "en"}}
+        """
+        let full = try? JSONDecoder().decode(
+            PendingPushResponse.self, from: Data(fullJSON.utf8)
+        )
+        check("push: null action decodes",
+              full?.hasPush == true && full?.push?.action == nil
+                  && full?.push?.postID == 20,
+              "got \(String(describing: full))")
+
+        let actionJSON = """
+        {"has_push": true, "next_poll_after_sec": 60, "push": {
+          "delivery_id": "d1", "post_id": 1, "title": "T", "body": "B",
+          "action": {"text": "GO", "url": "https://example.com/x"}, "lang": "es"}}
+        """
+        let withAction = try? JSONDecoder().decode(
+            PendingPushResponse.self, from: Data(actionJSON.utf8)
+        )
+        check("push: action decodes",
+              withAction?.push?.action?.url == "https://example.com/x",
+              "got \(String(describing: withAction?.push?.action))")
+
+        // The throttle must move forward on every response, push or not (§2).
+        PushStore.clearThrottle()
+        check("push: no throttle means due", PushStore.isPollDue)
+        PushStore.noteResponse(nextPollAfterSec: 900)
+        check("push: throttle blocks the next poll", !PushStore.isPollDue,
+              "nextPollAllowedAt \(String(describing: PushStore.nextPollAllowedAt))")
+        PushStore.clearThrottle()
+
         if failures.isEmpty {
             print("SELF-CHECK RESULT: ALL PASSED")
         } else {
