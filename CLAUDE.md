@@ -150,8 +150,11 @@ UserDefaults keys: `com.alphaacademy.web.{decision,destination,pathID,hubRequest
 
 `WebLeadBridge` is installed on the shell's content controller: a
 **`.atDocumentStart`** user script reads `localStorage["tw-app-user-id"]`, then
-re-checks once a second for two minutes, because the id is minted by the page's
-own registration call rather than being there on load. Document *start* is not a
+re-checks once a second for two minutes and then every five seconds for as long
+as the page is open. It never stops on purpose: per Ruslan (18.08.2026) the id is
+minted the moment the lead registers on Pocket, which can be at any point in a
+session — and a single-page app never reloads, so a bounded window would not get
+a second chance until the next cold start. Document *start* is not a
 detail: the real destination is a single-page app that holds its document open,
 so `.atDocumentEnd` scripts never run on it at all. It reports on the first run regardless, so the
 `WEB lead: localStorage keys […]` line shows up even for a page that has not

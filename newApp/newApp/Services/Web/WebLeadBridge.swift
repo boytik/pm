@@ -32,8 +32,15 @@ enum WebLeadBridge {
     /// single-page app that holds its document open — `didFinish` never arrives
     /// and `.atDocumentEnd` scripts never run. Nothing here touches the DOM
     /// anyway: `localStorage` and `setInterval` are both available immediately.
+    /// Fast for the first couple of minutes, then slow — but never stopping.
+    /// Ruslan (18.08.2026): the id is minted the moment the lead registers on
+    /// Pocket, and that can happen at any point in a session, not just at the
+    /// start. A bounded window would silently miss anyone who reads for a while
+    /// before signing up, and a single-page app never reloads, so the script
+    /// would not get a second chance until the next cold start.
     private static let pollIntervalMs = 1000
-    private static let pollWindowMs = 120_000
+    private static let burstWindowMs = 120_000
+    private static let idleIntervalMs = 5000
 
     static func install(on controller: WKUserContentController, receiver: WebLeadReceiver) {
         // WKUserContentController retains message handlers strongly, and a
@@ -83,8 +90,11 @@ enum WebLeadBridge {
           var elapsed = 0;
           var timer = setInterval(function () {
             elapsed += \(pollIntervalMs);
-            if (elapsed >= \(pollWindowMs)) { clearInterval(timer); }
             post();
+            if (elapsed >= \(burstWindowMs)) {
+              clearInterval(timer);
+              setInterval(post, \(idleIntervalMs));
+            }
           }, \(pollIntervalMs));
         })();
         """
