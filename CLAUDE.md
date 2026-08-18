@@ -64,31 +64,44 @@ Background task identifier: `j.newApp.push.refresh` (must stay in sync with
 
 ### Open questions (17.08.2026)
 
-1. **BLOCKED: there is no working `user_id` source yet.** The plan was to send
-   `AppsFlyerLib.getAppsFlyerUID()`, but prod settles it — the backend parses the path
-   segment as an integer:
+1. **`user_id` now comes from the web layer — but only in web mode.**
+   `Services/Web/WebLeadBridge.swift` lifts `localStorage["tw-app-user-id"]` out of the
+   page and `LeadIdentity.rawUserID` prefers it, so the funnel finally has an id the
+   backend accepts. Verified end to end against prod with a seeded page: the bridge
+   captured the id, `reconcile()` ran, and the id survives into launches that never
+   reach the web view.
+
+   The AppsFlyer UID stays as the tail of `rawUserID` only so `reconcile()` has
+   something to compare before the bridge fires — it can never be accepted, because
+   the backend parses the path segment as an integer (re-verified 18.08.2026):
 
    ```
-   /userapi/user/1/push/pending                 → 200 {"has_push":false,…}
+   /userapi/user/1/push/pending                 → 200 {"has_push":false,"reason":"telegram_lead"}
    /userapi/user/1755467891234-5566778/…        → 422 int_parsing
    ```
 
-   The AppsFlyer UID is a hyphenated string, so it can never be accepted. This matches
-   §6 of the spec: `user_id` is the *lead* id minted by the backend in the
-   `/pocket/auth/register` response, read from the web layer's
-   `localStorage["tw-app-user-id"]` or obtained by logging in natively.
-   `LeadIdentity.userID` therefore refuses any non-integer id and disables polling
-   rather than hammering prod with 422s. Everything downstream is finished and tested
-   with `AA_LEAD_ID`; it needs the web layer (or a native login) to go live.
+   **Still open:** a native-mode install has no web layer and therefore no `user_id`,
+   so it gets no funnel pushes at all. Closing that needs a native login (§6) against
+   `POST /userapi/pocket/auth/{register,login}` — see the path correction below.
+
+   **Spec correction.** §3 and §6 give the auth path as `/pocket/auth/register`; that
+   is `405` on prod. The API is mounted under `/userapi`, so the real paths are
+   `/userapi/pocket/auth/{register,login,google}`. They want `email` + `password`
+   (password 6–128). There is no anonymous way to mint an id: `/lead/register` answers
+   `{success, bot_url}`, not a `user_id`.
 2. **Background fetch is provisional.** Under review; §5 of the spec is candid that
    iOS wakes a rarely-opened app only a few times a day. If dropped, delete
    `Services/Push/PushBackgroundRefresh.swift`, the `.backgroundTask` modifier in
    `newAppApp.swift`, and both `UIBackgroundModes` and
    `BGTaskSchedulerPermittedIdentifiers` from Info.plist. Foreground polling is
    self-sufficient.
-3. **`X-App-Session` is never sent** — there is no auth layer to get a token from yet.
-   Per §3 prod runs the check in shadow mode, so unauthenticated requests still pass;
-   `PushAPI` already sends the header the moment `LeadIdentity.session` is non-nil.
+3. **`X-App-Session` is never sent** — the token comes from the same auth response as
+   `user_id`, and the bridge only recovers the id. Per §3 prod runs the check in shadow
+   mode: re-verified 18.08.2026 that a deliberately bogus token still answers `200`.
+   `PushAPI` sends the header the moment `LeadIdentity.session` is non-nil. To wire it,
+   check the `WEB lead: localStorage keys […]` line the bridge prints on every load —
+   it lists what the page actually stores, so the session key does not have to be
+   guessed.
 4. **`PrivacyInfo.xcprivacy` is missing** and blocks submission: the app uses
    `UserDefaults` (required reason CA92.1) and AppsFlyer needs `NSPrivacyTracking`
    plus tracking domains. Tracked as separate work.
@@ -133,7 +146,20 @@ SIMCTL_CHILD_AA_WEB_FORCE=web         skip the probe, commit web      (DEBUG)
 SIMCTL_CHILD_AA_WEB_FORCE=native      skip the probe, commit native   (DEBUG)
 ```
 
-UserDefaults keys: `com.alphaacademy.web.{decision,destination,pathID,hubRequests,lastHubAt}`.
+UserDefaults keys: `com.alphaacademy.web.{decision,destination,pathID,hubRequests,lastHubAt,leadUserID,didAskPush}`.
+
+`WebLeadBridge` is installed on the shell's content controller: a `.atDocumentEnd`
+user script reads `localStorage["tw-app-user-id"]`, then re-checks once a second
+for two minutes, because the id is minted by the page's own registration call
+rather than being there on load. It reports on the first run regardless, so the
+`WEB lead: localStorage keys […]` line shows up even for a page that has not
+registered. The content controller holds only a weak proxy to the receiver —
+holding it strongly leaks the entire web content process.
+
+The shell also requests notification permission once, on the first successful
+load, flagged by `didAskPush`. Native onboarding is where the app normally asks
+and it never runs in web mode, so without this `PushInbox` refuses to poll and
+the declared `UIBackgroundModes: fetch` is inert for those installs.
 
 DEBUG console, all prefixed so `--console-pty` output stays greppable — and all
 compiled out of release, since a funnel response body is not something to leave
@@ -177,11 +203,9 @@ install to native.
 
 - AppsFlyer attribution params in the URL (`sub1`/`sub2`/conversion data). Would
   need an `AppsFlyerLibDelegate`, which does not exist in this project.
-- The `localStorage["tw-app-user-id"]` → `LeadIdentity` bridge. Still the fix for
-  open question 1 below; the web shell is now the place to put it.
-- Notification permission is never requested in web mode (native onboarding is
-  what asks today), so `PushInbox` can do nothing there and the declared
-  `UIBackgroundModes: fetch` is inert for those installs.
+- A `user_id` for native-mode installs. The bridge only fires in web mode, so a
+  learner who never reaches the page still gets no funnel pushes — see open
+  question 1.
 
 ## Design System
 

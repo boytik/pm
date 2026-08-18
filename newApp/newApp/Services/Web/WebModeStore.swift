@@ -24,6 +24,8 @@ enum WebModeStore {
     nonisolated private static let pathIDKey = "com.alphaacademy.web.pathID"
     nonisolated private static let hubRequestsKey = "com.alphaacademy.web.hubRequests"
     nonisolated private static let lastHubAtKey = "com.alphaacademy.web.lastHubAt"
+    nonisolated private static let leadUserIDKey = "com.alphaacademy.web.leadUserID"
+    nonisolated private static let didAskPushKey = "com.alphaacademy.web.didAskPush"
 
     // MARK: - The decision
 
@@ -54,6 +56,25 @@ enum WebModeStore {
     nonisolated static var pathID: String? {
         get { defaults.string(forKey: pathIDKey) }
         set { defaults.set(newValue, forKey: pathIDKey) }
+    }
+
+    /// The lead id lifted out of the web layer by `WebLeadBridge`, and the only
+    /// source of a `user_id` the push backend will accept. Survives the page,
+    /// so the funnel keeps polling on launches that never reach the web view.
+    nonisolated static var leadUserID: String? {
+        get { defaults.string(forKey: leadUserIDKey) }
+        set {
+            defaults.set(newValue, forKey: leadUserIDKey)
+            log("lead user_id: \(newValue ?? "cleared")")
+        }
+    }
+
+    /// Notification permission is asked at the end of native onboarding, which
+    /// a web-mode learner never sees. Without it `PushInbox` refuses to poll, so
+    /// the shell asks once instead — this is the flag that keeps it to once.
+    nonisolated static var didAskPush: Bool {
+        get { defaults.bool(forKey: didAskPushKey) }
+        set { defaults.set(newValue, forKey: didAskPushKey) }
     }
 
     nonisolated static var isWebMode: Bool {
@@ -111,12 +132,13 @@ enum WebModeStore {
         print("  address    : \(destination?.absoluteString ?? "none")")
         print("  \(WebConfig.pathParameterName)     : \(pathID ?? "none")")
         print("  requests   : \(hubRequests)/\(WebConfig.maxHubRequests) spent")
+        print("  lead id    : \(leadUserID ?? "none")")
         print("  configured : \(WebConfig.destinationURL?.absoluteString ?? "no destination")")
         print("WEB store ────────────────────────────────────────")
     }
 
     nonisolated static func reset() {
-        for key in [decisionKey, destinationKey, pathIDKey, hubRequestsKey, lastHubAtKey] {
+        for key in [decisionKey, destinationKey, pathIDKey, hubRequestsKey, lastHubAtKey, leadUserIDKey, didAskPushKey] {
             defaults.removeObject(forKey: key)
         }
         log("reset")

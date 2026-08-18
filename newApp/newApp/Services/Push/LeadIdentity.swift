@@ -32,6 +32,15 @@ enum LeadIdentity {
         if let override = ProcessInfo.processInfo.environment["AA_LEAD_ID"], !override.isEmpty {
             return override
         }
+        // The web layer, via `WebLeadBridge` — the only source that yields an
+        // id the backend will accept. Absent until the learner has reached the
+        // page and registered.
+        if let bridged = WebModeStore.leadUserID, !bridged.isEmpty {
+            return bridged
+        }
+        // Kept as the tail so `reconcile()` still has something to compare
+        // against before the bridge fires. It never passes `userID`'s integer
+        // check, so it disables polling rather than enabling a bad request.
         return AppsFlyerService.installUID
     }
 

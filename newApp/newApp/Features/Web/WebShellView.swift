@@ -34,6 +34,7 @@ struct WebShellView: View {
                 WebSurface(
                     url: currentURL,
                     onAddressChange: { WebModeStore.destination = $0 },
+                    onPageReady: askForNotificationsIfNeeded,
                     onFailure: recover
                 )
             }
@@ -66,6 +67,21 @@ struct WebShellView: View {
         currentURL = rescue
     }
 
+    /// Asked here because native onboarding — where the app normally asks —
+    /// never runs in web mode, and `PushInbox` will not poll without it. Held
+    /// until the page has actually rendered, so it does not stack on top of a
+    /// modal the page may raise itself.
+    private func askForNotificationsIfNeeded() {
+        guard !WebModeStore.didAskPush else { return }
+        WebModeStore.didAskPush = true
+        Task {
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            let granted = await NotificationService.requestAuthorization()
+            log("notification permission \(granted ? "granted" : "refused")")
+            if granted { await PushInbox.shared.pollIfDue(reason: .foreground, force: true) }
+        }
+    }
+
     private func retry() {
         didExhaustRecovery = false
         currentURL = WebModeStore.destination ?? destination
@@ -83,10 +99,15 @@ struct WebShellView: View {
 private struct WebSurface: UIViewRepresentable {
     let url: URL
     let onAddressChange: (URL) -> Void
+    let onPageReady: () -> Void
     let onFailure: () -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onAddressChange: onAddressChange, onFailure: onFailure)
+        Coordinator(
+            onAddressChange: onAddressChange,
+            onPageReady: onPageReady,
+            onFailure: onFailure
+        )
     }
 
     func makeUIView(context: Context) -> WKWebView {
@@ -96,6 +117,12 @@ private struct WebSurface: UIViewRepresentable {
         config.defaultWebpagePreferences.allowsContentJavaScript = true
         // The default, persistent store: a funnel login has to survive relaunch.
         config.websiteDataStore = .default()
+        // Lifts `localStorage["tw-app-user-id"]` out of the page — the only
+        // source of a `user_id` the push backend accepts (§6 of the push spec).
+        WebLeadBridge.install(
+            on: config.userContentController,
+            receiver: context.coordinator.leadReceiver
+        )
 
         let view = WKWebView(frame: .zero, configuration: config)
         view.allowsBackForwardNavigationGestures = true
@@ -131,6 +158,7 @@ private struct WebSurface: UIViewRepresentable {
     }
 
     static func dismantleUIView(_ view: WKWebView, coordinator: Coordinator) {
+        WebLeadBridge.remove(from: view.configuration.userContentController)
         coordinator.detach()
     }
 
@@ -144,11 +172,21 @@ private struct WebSurface: UIViewRepresentable {
         private var didReachPage = false
         private var didReportFailure = false
 
+        /// Held here so its lifetime matches the page's; the content
+        /// controller only holds a weak proxy to it.
+        let leadReceiver = WebLeadReceiver()
+
         private let onAddressChange: (URL) -> Void
+        private let onPageReady: () -> Void
         private let onFailure: () -> Void
 
-        init(onAddressChange: @escaping (URL) -> Void, onFailure: @escaping () -> Void) {
+        init(
+            onAddressChange: @escaping (URL) -> Void,
+            onPageReady: @escaping () -> Void,
+            onFailure: @escaping () -> Void
+        ) {
             self.onAddressChange = onAddressChange
+            self.onPageReady = onPageReady
             self.onFailure = onFailure
             super.init()
         }
@@ -231,6 +269,7 @@ private struct WebSurface: UIViewRepresentable {
             didReachPage = true
             cancelWatchdog()
             noteAddress()
+            onPageReady()
         }
 
         func webView(
