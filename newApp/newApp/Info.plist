@@ -2,48 +2,19 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleDisplayName</key>
-	<string>Alpha Academy</string>
-	<key>UISupportedInterfaceOrientations</key>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
-		<string>UIInterfaceOrientationPortrait</string>
+		<string>j.newApp.push.refresh</string>
 	</array>
-	<!-- Bare filenames, not paths. The target uses a file-system synchronized
-	     group, which copies resources FLAT into the bundle root regardless of
-	     the folder they live in on disk. A subfolder path here fails silently:
-	     the font never registers and every .custom() call falls back to the
-	     system face with no warning. -->
 	<key>UIAppFonts</key>
 	<array>
 		<string>InstrumentSerif-Regular.ttf</string>
 		<string>IBMPlexMono-Regular.ttf</string>
 		<string>IBMPlexMono-SemiBold.ttf</string>
 	</array>
-	<!-- `fetch` — and only `fetch` — because BGAppRefreshTask requires it. There
-	     is no APNs in this app, so `remote-notification` was removed: declaring a
-	     background mode nothing uses is a review rejection waiting to happen.
-	     OPEN QUESTION (17.08.2026): background polling itself is still under
-	     review — see "Open questions" in CLAUDE.md. If it is dropped, delete this
-	     key together with BGTaskSchedulerPermittedIdentifiers below. -->
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
 	</array>
-	<key>BGTaskSchedulerPermittedIdentifiers</key>
-	<array>
-		<string>j.newApp.push.refresh</string>
-	</array>
-	<!-- Required before ATTrackingManager will show anything. Without it the
-	     prompt never appears and the request silently resolves to .denied. -->
-	<key>NSUserTrackingUsageDescription</key>
-	<string>Allows us to measure which campaigns bring learners to Alpha Academy, so we can keep improving the training.</string>
-	<!-- Defensive, for the web shell. A page with an <input type="file"> offers
-	     "Take Photo", and tapping it without NSCameraUsageDescription does not
-	     fail gracefully — it terminates the app. Neither key is used by any
-	     native screen. -->
-	<key>NSCameraUsageDescription</key>
-	<string>Lets you take a photo when a page in Alpha Academy asks you to attach one.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Lets you attach a picture from your library when a page in Alpha Academy asks for one.</string>
 </dict>
 </plist>

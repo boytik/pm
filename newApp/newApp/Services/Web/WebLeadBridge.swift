@@ -23,10 +23,15 @@ enum WebLeadBridge {
     /// "tgId for bot flow, tw-app-user-id for PWA flow".
     private static let storageKey = "tw-app-user-id"
 
-    /// Reading once at document end is not enough: the id is minted by
-    /// `/pocket/auth/register`, which the page calls after it has loaded. So the
-    /// script reads, then watches — cheaply, and only for as long as it is
-    /// plausible the learner is still registering.
+    /// Reading once is not enough: the id is minted by `/pocket/auth/register`,
+    /// which the page calls after it has loaded. So the script reads, then
+    /// watches — cheaply, and only for as long as it is plausible the learner is
+    /// still registering.
+    ///
+    /// Injected at document *start*, not end. The real destination is a
+    /// single-page app that holds its document open — `didFinish` never arrives
+    /// and `.atDocumentEnd` scripts never run. Nothing here touches the DOM
+    /// anyway: `localStorage` and `setInterval` are both available immediately.
     private static let pollIntervalMs = 1000
     private static let pollWindowMs = 120_000
 
@@ -39,7 +44,7 @@ enum WebLeadBridge {
         controller.addUserScript(
             WKUserScript(
                 source: script,
-                injectionTime: .atDocumentEnd,
+                injectionTime: .atDocumentStart,
                 forMainFrameOnly: true
             )
         )

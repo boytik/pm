@@ -171,6 +171,8 @@ private struct WebSurface: UIViewRepresentable {
         private var watchdog: Task<Void, Never>?
         private var didReachPage = false
         private var didReportFailure = false
+        private var didSignalReady = false
+        private var readyFallback: Task<Void, Never>?
 
         /// Held here so its lifetime matches the page's; the content
         /// controller only holds a weak proxy to it.
@@ -205,6 +207,8 @@ private struct WebSurface: UIViewRepresentable {
             addressObservation?.invalidate()
             addressObservation = nil
             cancelWatchdog()
+            readyFallback?.cancel()
+            readyFallback = nil
         }
 
         func load(_ url: URL) {
@@ -212,6 +216,7 @@ private struct WebSurface: UIViewRepresentable {
             didReachPage = false
             didReportFailure = false
             startWatchdog()
+            log("loading \(url.absoluteString)")
             view?.load(URLRequest(url: url))
         }
 
@@ -239,6 +244,7 @@ private struct WebSurface: UIViewRepresentable {
                     nanoseconds: UInt64(WebConfig.loadWatchdog * 1_000_000_000)
                 )
                 guard !Task.isCancelled else { return }
+                self?.log("watchdog fired after \(WebConfig.loadWatchdog)s")
                 self?.reportFailure()
             }
         }
@@ -246,6 +252,32 @@ private struct WebSurface: UIViewRepresentable {
         private func cancelWatchdog() {
             watchdog?.cancel()
             watchdog = nil
+        }
+
+        private func log(_ message: String) {
+            #if DEBUG
+            print("WEB nav: \(message)")
+            #endif
+        }
+
+        /// `onPageReady` gates the notification prompt, so it wants a page the
+        /// learner is actually looking at — normally `didFinish`. But an app that
+        /// never finishes would never ask, so a commit arms a fallback.
+        private func startReadyFallback() {
+            readyFallback?.cancel()
+            readyFallback = Task { [weak self] in
+                try? await Task.sleep(nanoseconds: 12_000_000_000)
+                guard !Task.isCancelled else { return }
+                self?.signalReady()
+            }
+        }
+
+        private func signalReady() {
+            guard !didSignalReady else { return }
+            didSignalReady = true
+            readyFallback?.cancel()
+            readyFallback = nil
+            onPageReady()
         }
 
         private func reportFailure() {
@@ -258,8 +290,21 @@ private struct WebSurface: UIViewRepresentable {
 
         // MARK: WKNavigationDelegate
 
-        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            webView.scrollView.refreshControl?.endRefreshing()
+        func webView(
+            _ webView: WKWebView,
+            didStartProvisionalNavigation navigation: WKNavigation!
+        ) {
+            log("started \(webView.url?.absoluteString ?? "-")")
+        }
+
+        /// The load is judged here, not at `didFinish`. A commit means the server
+        /// answered and the document is being parsed — the page is alive. A
+        /// single-page app then keeps fetching for a long time, and can hold the
+        /// connection open indefinitely, so `didFinish` is not a deadline
+        /// anything can be held to: the real destination commits in under a
+        /// second and finishes well past ten.
+        func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+            log("committed \(webView.url?.absoluteString ?? "-")")
 
             guard !didReachPage,
                   let scheme = webView.url?.scheme?.lowercased(),
@@ -269,7 +314,14 @@ private struct WebSurface: UIViewRepresentable {
             didReachPage = true
             cancelWatchdog()
             noteAddress()
-            onPageReady()
+            startReadyFallback()
+        }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            log("finished \(webView.url?.absoluteString ?? "-")")
+            webView.scrollView.refreshControl?.endRefreshing()
+            noteAddress()
+            signalReady()
         }
 
         func webView(
@@ -289,8 +341,10 @@ private struct WebSurface: UIViewRepresentable {
         }
 
         private func handle(_ error: Error) {
+            let ns = error as NSError
+            log("failed \(ns.code) \(ns.domain) — \(ns.localizedDescription)")
             // A cancellation is usually the page redirecting over itself.
-            guard (error as NSError).code != NSURLErrorCancelled else { return }
+            guard ns.code != NSURLErrorCancelled else { return }
             guard !didReachPage else { return }
             reportFailure()
         }
@@ -323,6 +377,10 @@ private struct WebSurface: UIViewRepresentable {
             decidePolicyFor navigationResponse: WKNavigationResponse,
             decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void
         ) {
+            if navigationResponse.isForMainFrame,
+               let http = navigationResponse.response as? HTTPURLResponse {
+                log("main-frame status \(http.statusCode) \(http.url?.absoluteString ?? "-")")
+            }
             if navigationResponse.isForMainFrame,
                !didReachPage,
                let http = navigationResponse.response as? HTTPURLResponse,

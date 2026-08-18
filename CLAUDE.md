@@ -148,16 +148,26 @@ SIMCTL_CHILD_AA_WEB_FORCE=native      skip the probe, commit native   (DEBUG)
 
 UserDefaults keys: `com.alphaacademy.web.{decision,destination,pathID,hubRequests,lastHubAt,leadUserID,didAskPush}`.
 
-`WebLeadBridge` is installed on the shell's content controller: a `.atDocumentEnd`
-user script reads `localStorage["tw-app-user-id"]`, then re-checks once a second
-for two minutes, because the id is minted by the page's own registration call
-rather than being there on load. It reports on the first run regardless, so the
+`WebLeadBridge` is installed on the shell's content controller: a
+**`.atDocumentStart`** user script reads `localStorage["tw-app-user-id"]`, then
+re-checks once a second for two minutes, because the id is minted by the page's
+own registration call rather than being there on load. Document *start* is not a
+detail: the real destination is a single-page app that holds its document open,
+so `.atDocumentEnd` scripts never run on it at all. It reports on the first run regardless, so the
 `WEB lead: localStorage keys […]` line shows up even for a page that has not
 registered. The content controller holds only a weak proxy to the receiver —
 holding it strongly leaks the entire web content process.
 
+**The load is judged at `didCommit`, never at `didFinish`.** The real
+destination commits in under a second and never finishes — it keeps fetching for
+as long as it is open — so a watchdog on `didFinish` reported a perfectly healthy
+page as broken and dropped every launch onto `WebRetryView`. A commit means the
+server answered and the document is parsing; that is the only sane definition of
+"the page is alive" for a single-page app.
+
 The shell also requests notification permission once, on the first successful
-load, flagged by `didAskPush`. Native onboarding is where the app normally asks
+load, flagged by `didAskPush`. `onPageReady` normally fires on `didFinish`, with
+a 12-second fallback from commit for the same reason. Native onboarding is where the app normally asks
 and it never runs in web mode, so without this `PushInbox` refuses to poll and
 the declared `UIBackgroundModes: fetch` is inert for those installs.
 
@@ -175,6 +185,10 @@ in a shipping log:
 - `WEB store:` — every write: decision committed, saved address updated.
 - `WEB route:` — the branch actually taken this launch: `WEB (decided now)`,
   `WEB (decided earlier)`, or `NATIVE → main|onboarding`.
+- `WEB nav:` — the navigation trace: `loading`, `started`, `main-frame status`,
+  `committed`, `finished`, `failed`, `watchdog fired`. This is what to read first
+  when the page does not appear.
+- `WEB lead:` — the localStorage key list on every load, and the captured id.
 
 ### Deliberate deviations from the `check-app` audit
 

@@ -48,7 +48,18 @@ enum AppsFlyerService {
                     _ = try await AppsFlyerLib.shared().start()
                 } catch {
                     #if DEBUG
-                    print("APPSFLYER start failed — \(error)")
+                    // Code 10 is the SDK refusing a session that arrived inside
+                    // `minTimeBetweenSessions` — it logs `[WARNING] Skip launch`
+                    // and keeps the earlier one. Normal when the listener fires
+                    // again (an ATT or notification alert ends a foreground
+                    // cycle) and normal under repeated QA relaunches. Not a
+                    // failure, and printing it as one buries the real ones.
+                    let ns = error as NSError
+                    if ns.domain == "com.appsflyer.sdk.event", ns.code == 10 {
+                        print("APPSFLYER session already counted — skipped")
+                    } else {
+                        print("APPSFLYER start failed — \(error)")
+                    }
                     #endif
                 }
             }

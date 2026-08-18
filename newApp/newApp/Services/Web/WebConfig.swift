@@ -35,8 +35,11 @@ enum WebConfig {
     /// the first launch into a wait.
     nonisolated static let requestTimeout: TimeInterval = 5
 
-    /// How long a page gets to reach `didFinish` before the shell calls it a
-    /// failed load.
+    /// How long a page gets to *commit* — for the server to answer and the
+    /// document to start parsing — before the shell calls the load failed.
+    /// Deliberately not time-to-`didFinish`: a single-page app keeps fetching
+    /// long after it is on screen, and judging it on that reports a healthy
+    /// page as broken.
     nonisolated static let loadWatchdog: TimeInterval = 7
 
     /// The destination may be requested at most twice for the lifetime of the
