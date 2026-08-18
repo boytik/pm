@@ -37,5 +37,13 @@
 	     prompt never appears and the request silently resolves to .denied. -->
 	<key>NSUserTrackingUsageDescription</key>
 	<string>Allows us to measure which campaigns bring learners to Alpha Academy, so we can keep improving the training.</string>
+	<!-- Defensive, for the web shell. A page with an <input type="file"> offers
+	     "Take Photo", and tapping it without NSCameraUsageDescription does not
+	     fail gracefully — it terminates the app. Neither key is used by any
+	     native screen. -->
+	<key>NSCameraUsageDescription</key>
+	<string>Lets you take a photo when a page in Alpha Academy asks you to attach one.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Lets you attach a picture from your library when a page in Alpha Academy asks for one.</string>
 </dict>
 </plist>

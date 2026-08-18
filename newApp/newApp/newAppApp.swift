@@ -12,6 +12,11 @@ struct newAppApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        #if DEBUG
+        // Has to land before `AppRouter.init()` reads the decision to pick the
+        // launch phase, and that happens while the scene body is composed.
+        WebModeStore.applyQAOverrides()
+        #endif
         // The notification delegate has to be in place before launch finishes,
         // otherwise a tap that cold-starts the app is delivered to nobody.
         UNUserNotificationCenter.current().delegate = PushNotificationDelegate.shared

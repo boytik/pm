@@ -16,6 +16,11 @@ enum TrackingAuthorization {
         ATTrackingManager.trackingAuthorizationStatus
     }
 
+    /// Whether the prompt has been answered — either just now, or on an earlier
+    /// launch. Exposed as a plain `Bool` so call sites that only need to know
+    /// "has the learner decided?" do not have to import AppTrackingTransparency.
+    static var isResolved: Bool { status != .notDetermined }
+
     /// Requests authorization exactly once per install.
     ///
     /// The system alert is only presented while the app is `.active`. Calling

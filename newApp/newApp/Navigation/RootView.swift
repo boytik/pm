@@ -9,6 +9,11 @@ struct RootView: View {
     @StateObject private var store = AppStore()
     @StateObject private var router = AppRouter()
 
+    private var isWebPhase: Bool {
+        if case .web = router.phase { return true }
+        return false
+    }
+
     var body: some View {
         ZStack {
             Theme.bg.ignoresSafeArea()
@@ -20,13 +25,19 @@ struct RootView: View {
                 OnboardingFlowView().transition(.opacity)
             case .main:
                 MainTabView().transition(.opacity)
+            case .web(let url):
+                WebShellView(destination: url).transition(.opacity)
             }
         }
         .animation(.easeInOut(duration: 0.25), value: router.phase)
         .environmentObject(store)
         .environmentObject(router)
         .tint(Theme.blue)
-        .preferredColorScheme(.dark)
+        // The native screens are dark by design. The remote page is not ours:
+        // forcing the scheme there both leaks `prefers-color-scheme: dark` into
+        // a funnel that may only be styled light, and paints the status bar
+        // white over it — unreadable, now that the shell ignores the safe area.
+        .preferredColorScheme(isWebPhase ? nil : .dark)
         .task {
             #if DEBUG
             if DebugSelfCheck.isRequested { DebugSelfCheck.run(on: store) }
@@ -44,6 +55,17 @@ struct RootView: View {
                 }
             }
             #endif
+
+            // Settled on an earlier launch — `AppRouter.init` already put us in
+            // `.web`, and none of the sequencing below applies. The DEBUG hooks
+            // stay above this return so `AA_SELF_CHECK` still reports.
+            if case .web(let url) = router.phase {
+                #if DEBUG
+                print("WEB route: WEB (decided earlier) → \(url.absoluteString)")
+                #endif
+                return
+            }
+
             // Hold the splash briefly so it does not flash and vanish.
             try? await Task.sleep(nanoseconds: 900_000_000)
 
@@ -53,8 +75,33 @@ struct RootView: View {
             // onboarding — two stacked system alerts read as a shakedown.
             await TrackingAuthorization.requestIfNeeded()
 
+            // Ordering here is structural, not a race to win: the call above
+            // does not return until the learner has answered the system alert,
+            // and the gate is the next statement in the same task.
+            //
+            // The status check covers the one case where no alert appeared —
+            // a launch that never became `.active`, so `requestIfNeeded` gave
+            // up. The decision is once per install; do not spend it on a launch
+            // the learner never saw.
+            if WebModeStore.decision == nil, TrackingAuthorization.isResolved {
+                switch await WebGate.decide() {
+                case .web(let url, let pathID):
+                    WebModeStore.commitWeb(destination: url, pathID: pathID)
+                    #if DEBUG
+                    print("WEB route: WEB (decided now) → \(url.absoluteString)")
+                    #endif
+                    router.phase = .web(url)
+                    return
+                case .native:
+                    WebModeStore.commitNative()
+                }
+            }
+
             store.refreshStreakIfNeeded()
             router.phase = store.profile.hasOnboarded ? .main : .onboarding
+            #if DEBUG
+            print("WEB route: NATIVE → \(router.phase == .main ? "main" : "onboarding")")
+            #endif
         }
     }
 }
