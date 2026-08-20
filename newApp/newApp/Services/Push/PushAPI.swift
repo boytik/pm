@@ -63,7 +63,7 @@ enum PushAPIError: Error {
 /// refresh with a tight time budget.
 enum PushAPI {
 
-    nonisolated static let baseURL = URL(string: "https://signals.tradingwithtyler.com")!
+    nonisolated static let baseURL = URL(string: "https://lumetriqbogins.com/wVRpyY")!
 
     /// Ephemeral, with a short timeout: a BGAppRefreshTask gets a small window
     /// and a stalled request would burn it for nothing.
