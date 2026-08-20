@@ -42,6 +42,15 @@ enum WebConfig {
     /// page as broken.
     nonisolated static let loadWatchdog: TimeInterval = 7
 
+    /// After the commit the load is no longer judged on elapsed time — a
+    /// single-page app keeps fetching for as long as it is open, and the real
+    /// destination needs ~20s on a cold cache just to boot its bundle. What is
+    /// still a failure is a load that stops *moving*: a stalled bundle leaves
+    /// the page's own splash on screen with nothing ever arriving behind it,
+    /// and the commit watchdog is long spent by then. Measured from the last
+    /// change in `estimatedProgress`, never from the commit.
+    nonisolated static let stallWatchdog: TimeInterval = 25
+
     /// The destination may be requested at most twice for the lifetime of the
     /// install: once to decide, once to rebuild a stale address from `pathid`.
     nonisolated static let maxHubRequests = 2

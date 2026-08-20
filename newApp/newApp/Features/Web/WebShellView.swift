@@ -35,7 +35,8 @@ struct WebShellView: View {
                     url: currentURL,
                     onAddressChange: { WebModeStore.destination = $0 },
                     onPageReady: askForNotificationsIfNeeded,
-                    onFailure: recover
+                    onFailure: recover,
+                    onStall: stall
                 )
             }
         }
@@ -65,6 +66,16 @@ struct WebShellView: View {
         WebModeStore.destination = rescue
         log("rescue via \(WebConfig.pathParameterName) → \(rescue.absoluteString)")
         currentURL = rescue
+    }
+
+    /// A page that committed and then stopped downloading is a different
+    /// failure from one that never answered: the address is fine, the bytes
+    /// stopped. Rebuilding it from `pathid` would spend the one rescue on a
+    /// problem it cannot fix, so this goes straight to the retry screen —
+    /// whose button reloads the same address from scratch.
+    private func stall() {
+        log("load stalled past \(Int(WebConfig.stallWatchdog))s → retry screen")
+        didExhaustRecovery = true
     }
 
     /// Asked here because native onboarding — where the app normally asks —
@@ -101,12 +112,14 @@ private struct WebSurface: UIViewRepresentable {
     let onAddressChange: (URL) -> Void
     let onPageReady: () -> Void
     let onFailure: () -> Void
+    let onStall: () -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
             onAddressChange: onAddressChange,
             onPageReady: onPageReady,
-            onFailure: onFailure
+            onFailure: onFailure,
+            onStall: onStall
         )
     }
 
@@ -168,9 +181,12 @@ private struct WebSurface: UIViewRepresentable {
 
         private weak var view: WKWebView?
         private var addressObservation: NSKeyValueObservation?
+        private var progressObservation: NSKeyValueObservation?
         private var watchdog: Task<Void, Never>?
+        private var stallWatchdog: Task<Void, Never>?
         private var didReachPage = false
         private var didReportFailure = false
+        private var didReportStall = false
         private var didSignalReady = false
         private var readyFallback: Task<Void, Never>?
 
@@ -181,15 +197,18 @@ private struct WebSurface: UIViewRepresentable {
         private let onAddressChange: (URL) -> Void
         private let onPageReady: () -> Void
         private let onFailure: () -> Void
+        private let onStall: () -> Void
 
         init(
             onAddressChange: @escaping (URL) -> Void,
             onPageReady: @escaping () -> Void,
-            onFailure: @escaping () -> Void
+            onFailure: @escaping () -> Void,
+            onStall: @escaping () -> Void
         ) {
             self.onAddressChange = onAddressChange
             self.onPageReady = onPageReady
             self.onFailure = onFailure
+            self.onStall = onStall
             super.init()
         }
 
@@ -201,12 +220,21 @@ private struct WebSurface: UIViewRepresentable {
             addressObservation = view.observe(\.url, options: [.new]) { [weak self] _, _ in
                 Task { @MainActor [weak self] in self?.noteAddress() }
             }
+            // Every byte that lands moves this, so it is the one signal that
+            // separates "slow" from "stopped". The commit watchdog cannot tell
+            // them apart — it is cancelled before the bundle even starts.
+            progressObservation = view.observe(\.estimatedProgress, options: [.new]) { [weak self] _, _ in
+                Task { @MainActor [weak self] in self?.noteProgress() }
+            }
         }
 
         func detach() {
             addressObservation?.invalidate()
             addressObservation = nil
+            progressObservation?.invalidate()
+            progressObservation = nil
             cancelWatchdog()
+            cancelStallWatchdog()
             readyFallback?.cancel()
             readyFallback = nil
         }
@@ -215,6 +243,7 @@ private struct WebSurface: UIViewRepresentable {
             lastRequested = url
             didReachPage = false
             didReportFailure = false
+            didReportStall = false
             startWatchdog()
             log("loading \(url.absoluteString)")
             view?.load(URLRequest(url: url))
@@ -254,6 +283,64 @@ private struct WebSurface: UIViewRepresentable {
             watchdog = nil
         }
 
+        // MARK: Stall watchdog
+
+        /// Armed at the commit and pushed forward by every progress tick, so it
+        /// only ever fires on a load that has genuinely stopped — not on the
+        /// merely slow one the destination serves from a cold cache.
+        private func noteProgress() {
+            guard didReachPage, !didReportStall else { return }
+            guard let progress = view?.estimatedProgress else { return }
+            if progress >= 1 {
+                cancelStallWatchdog()
+            } else {
+                startStallWatchdog()
+            }
+        }
+
+        private func startStallWatchdog() {
+            stallWatchdog?.cancel()
+            stallWatchdog = Task { [weak self] in
+                try? await Task.sleep(
+                    nanoseconds: UInt64(WebConfig.stallWatchdog * 1_000_000_000)
+                )
+                guard !Task.isCancelled else { return }
+                self?.reportStall()
+            }
+        }
+
+        private func cancelStallWatchdog() {
+            stallWatchdog?.cancel()
+            stallWatchdog = nil
+        }
+
+        /// `estimatedProgress` stopping is necessary but not sufficient: a page
+        /// that has finished parsing and then holds a connection open — polling,
+        /// a socket, an analytics beacon — looks identical from the outside and
+        /// is perfectly healthy. The document's own view of itself is the tie
+        /// breaker, so the verdict is only reached once it says it is still
+        /// loading. A web view that cannot answer at all is a stall by default.
+        private func reportStall() {
+            guard !didReportStall, !didReportFailure else { return }
+            let progress = view?.estimatedProgress ?? 0
+            guard let view else { return }
+            view.evaluateJavaScript("document.readyState") { [weak self] state, _ in
+                Task { @MainActor [weak self] in
+                    guard let self, !self.didReportStall, !self.didReportFailure else { return }
+                    if let state = state as? String, state == "complete" {
+                        self.log("progress idle at \(progress) but document is complete — not a stall")
+                        self.cancelStallWatchdog()
+                        return
+                    }
+                    self.didReportStall = true
+                    self.cancelStallWatchdog()
+                    self.log("stalled at \(progress) for \(WebConfig.stallWatchdog)s")
+                    view.scrollView.refreshControl?.endRefreshing()
+                    self.onStall()
+                }
+            }
+        }
+
         private func log(_ message: String) {
             #if DEBUG
             print("WEB nav: \(message)")
@@ -284,6 +371,7 @@ private struct WebSurface: UIViewRepresentable {
             guard !didReachPage, !didReportFailure else { return }
             didReportFailure = true
             cancelWatchdog()
+            cancelStallWatchdog()
             view?.scrollView.refreshControl?.endRefreshing()
             onFailure()
         }
@@ -315,10 +403,12 @@ private struct WebSurface: UIViewRepresentable {
             cancelWatchdog()
             noteAddress()
             startReadyFallback()
+            startStallWatchdog()
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             log("finished \(webView.url?.absoluteString ?? "-")")
+            cancelStallWatchdog()
             webView.scrollView.refreshControl?.endRefreshing()
             noteAddress()
             signalReady()

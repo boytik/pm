@@ -21,14 +21,14 @@ A DEBUG self-check exercises the whole data pipeline (spaced repetition, the com
 funnel, streaks, achievements, persistence, callsign derivation):
 
 ```
-SIMCTL_CHILD_AA_SELF_CHECK=1 xcrun simctl launch --console-pty booted j.newApp
+SIMCTL_CHILD_AA_SELF_CHECK=1 xcrun simctl launch --console-pty booted com.rainerhansen.globoton
 ```
 
 QA can jump straight to a tab or a training mode:
 
 ```
 SIMCTL_CHILD_AA_INITIAL_TAB=chart SIMCTL_CHILD_AA_INITIAL_MODE=encode \
-  xcrun simctl launch booted j.newApp
+  xcrun simctl launch booted com.rainerhansen.globoton
 ```
 
 ## Push & attribution
@@ -56,7 +56,7 @@ Layout: `Services/Push/` (`PushAPI`, `PushInbox`, `PushStore`, `LeadIdentity`,
 QA overrides (the lead id is still not derivable at runtime — see open question 1):
 
 ```
-SIMCTL_CHILD_AA_LEAD_ID=<user_id> xcrun simctl launch --console-pty booted j.newApp
+SIMCTL_CHILD_AA_LEAD_ID=<user_id> xcrun simctl launch --console-pty booted com.rainerhansen.globoton
 ```
 
 Background task identifier: `j.newApp.push.refresh` (must stay in sync with
@@ -162,11 +162,30 @@ registered. The content controller holds only a weak proxy to the receiver —
 holding it strongly leaks the entire web content process.
 
 **The load is judged at `didCommit`, never at `didFinish`.** The real
-destination commits in under a second and never finishes — it keeps fetching for
-as long as it is open — so a watchdog on `didFinish` reported a perfectly healthy
-page as broken and dropped every launch onto `WebRetryView`. A commit means the
+destination commits in a couple of seconds but can take another twenty to boot,
+so a 7-second watchdog on `didFinish` reported a perfectly healthy page as
+broken and dropped every cold launch onto `WebRetryView`. A commit means the
 server answered and the document is parsing; that is the only sane definition of
 "the page is alive" for a single-page app.
+
+**After the commit the load is judged on movement, not on time**
+(`WebConfig.stallWatchdog`, 25s). `estimatedProgress` is observed; every tick
+pushes the deadline out, `didFinish` and progress `1.0` cancel it. A stall means
+the page committed and then stopped receiving bytes — the site's own splash
+stays on screen with nothing ever arriving behind it, and the commit watchdog is
+long spent by then. Progress going quiet is necessary but not sufficient: a page
+that finished parsing and holds a socket open looks identical from outside, so
+the verdict is only reached after `document.readyState` confirms it is still
+loading. A stall goes straight to `WebRetryView` — the address is fine, the
+bytes stopped, so spending the one `pathid` rescue on it would waste it.
+
+Cold-start timings measured against prod (20.08.2026): commit ~2s, `didFinish`
+5–30s depending on how the origin feels. The spread is the origin's, not the
+app's — `signals.tradingwithtyler.com` is a bare nginx with no CDN serving
+`/assets/index-*.js` at 1.17 MB **uncompressed** (`vary: Accept-Encoding` is set
+but no `content-encoding` comes back) at 70–130 KB/s. gzip would take it to
+330 KB. Warm launches are ~2s: the assets are `immutable, max-age=2592000` and
+WebKit caches them, so only the very first launch is slow.
 
 The shell also requests notification permission once, on the first successful
 load, flagged by `didAskPush`. `onPageReady` normally fires on `didFinish`, with
@@ -189,8 +208,10 @@ in a shipping log:
 - `WEB route:` — the branch actually taken this launch: `WEB (decided now)`,
   `WEB (decided earlier)`, or `NATIVE → main|onboarding`.
 - `WEB nav:` — the navigation trace: `loading`, `started`, `main-frame status`,
-  `committed`, `finished`, `failed`, `watchdog fired`. This is what to read first
-  when the page does not appear.
+  `committed`, `finished`, `failed`, `watchdog fired`, `stalled at <progress>`.
+  This is what to read first when the page does not appear. A trace that reaches
+  `committed` and stops there for tens of seconds is the origin being slow, not
+  the app being stuck.
 - `WEB lead:` — the localStorage key list on every load, and the captured id.
 
 ### Deliberate deviations from the `check-app` audit
