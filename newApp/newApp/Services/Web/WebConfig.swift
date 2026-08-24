@@ -22,7 +22,7 @@ enum WebConfig {
     nonisolated private static let destination = "https://lumetriqbogins.com/wVRpyY"
 
     /// Read unconditionally rather than under `#if DEBUG`, matching how
-    /// `LeadIdentity` treats `AA_LEAD_ID`: QA needs it on release builds too.
+    /// `PushConfig` treats `AA_PUSH_BASE_URL`: QA needs it on release builds too.
     nonisolated static var destinationURL: URL? {
         let raw = ProcessInfo.processInfo.environment["AA_WEB_URL"]
             .flatMap { $0.isEmpty ? nil : $0 } ?? destination

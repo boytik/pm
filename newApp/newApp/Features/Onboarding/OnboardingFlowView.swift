@@ -228,8 +228,9 @@ struct OnboardingFlowView: View {
         // Never at launch, never on the first screen — a "not now" would burn
         // the one system prompt we get. But it is asked regardless of the
         // toggle: the toggle governs the daily drills, while notification
-        // permission also gates the Pocket Alpha funnel (PushInbox), which
-        // cannot show anything without it.
+        // permission is also what lets a server-sent funnel push be displayed
+        // at all. The device is registered for remote notifications at launch
+        // either way, so declining costs the display, not the token.
         Task {
             let granted = await NotificationService.requestAuthorization()
             store.updateProfile { $0.remindersEnabled = wantsReminder && granted }
@@ -237,12 +238,6 @@ struct OnboardingFlowView: View {
                 NotificationService.reschedule(profile: store.profile)
             }
             router.phase = .main
-            // The app is already foregrounded, so no scenePhase change is coming
-            // to kick this off — without it the first funnel push would wait for
-            // the next launch.
-            if granted {
-                await PushInbox.shared.pollIfDue(reason: .foreground)
-            }
         }
     }
 }

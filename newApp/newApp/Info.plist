@@ -2,19 +2,11 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>BGTaskSchedulerPermittedIdentifiers</key>
-	<array>
-		<string>j.newApp.push.refresh</string>
-	</array>
 	<key>UIAppFonts</key>
 	<array>
 		<string>InstrumentSerif-Regular.ttf</string>
 		<string>IBMPlexMono-Regular.ttf</string>
 		<string>IBMPlexMono-SemiBold.ttf</string>
-	</array>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>fetch</string>
 	</array>
 </dict>
 </plist>

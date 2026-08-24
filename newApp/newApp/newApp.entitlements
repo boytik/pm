@@ -2,10 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Deliberately empty. `aps-environment` used to live here, but nothing in
-	     the app registers for remote notifications: the Pocket Alpha funnel is a
-	     pull model — the app polls /push/pending and raises a LOCAL notification.
-	     Re-add the key only when the APNs step from §5 of
-	     Pocket_Alpha_iOS_Push_API.md actually lands. -->
+	<!-- `development` is correct for BOTH configurations. Xcode rewrites this to
+	     `production` at signing time when it builds with a distribution profile,
+	     so the source file never says `production` and the archived binary never
+	     says `development`. That substitution is exactly why `apns_env` is read
+	     from the built binary's profile at runtime (see APNSEnvironment) and is
+	     never derived from this file or from `#if DEBUG`. -->
+	<key>aps-environment</key>
+	<string>development</string>
 </dict>
 </plist>

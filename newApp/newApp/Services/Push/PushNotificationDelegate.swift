@@ -2,9 +2,13 @@
 //  PushNotificationDelegate.swift
 //  Alpha Academy
 //
-//  Foreground presentation and tap handling. Without a delegate, a funnel push
-//  that lands while the app is open is dropped silently, and there is nowhere to
-//  hang the click report.
+//  Foreground presentation and tap handling for the APNs funnel.
+//
+//  The two kinds of notification in this app share one centre: server-sent
+//  funnel pushes, and the local `drill.*` practice reminders. They are told
+//  apart by trigger type, not by identifier — a remote push's identifier is
+//  whatever `apns-collapse-id` the server chose (`post-<id>` today) or an
+//  opaque UUID when it chose none, and neither is ours to rely on.
 //
 
 import Foundation
@@ -17,35 +21,55 @@ final class PushNotificationDelegate: NSObject, UNUserNotificationCenterDelegate
 
     private override init() { super.init() }
 
+    /// Idempotent, because it is called from both `newAppApp.init()` and
+    /// `application(_:didFinishLaunchingWithOptions:)`. The requirement is only
+    /// that it happen before launch finishes — a tap that cold-starts the app
+    /// is otherwise delivered to nobody — and both sites are before that.
+    static func install() {
+        let center = UNUserNotificationCenter.current()
+        guard center.delegate !== shared else { return }
+        center.delegate = shared
+    }
+
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
-        [.banner, .sound]
+        [.banner, .sound, .list]
     }
 
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
-        let identifier = response.notification.request.identifier
-        // `drill.*` reminders just open the app, as they always have.
-        guard identifier.hasPrefix(LeadIdentity.notificationPrefix) else { return }
+        // `drill.*` reminders carry a calendar trigger and have always done one
+        // thing: open the app. Falling through preserves that exactly.
+        guard response.notification.request.trigger is UNPushNotificationTrigger else { return }
 
         let info = response.notification.request.content.userInfo
-        guard let deliveryID = info["delivery_id"] as? String else { return }
+        let pid = info["pid"] as? String
 
-        // §2.2: report before opening. Idempotent, and skipping it zeroes out
-        // the effectiveness stats for the whole iOS channel.
-        await PushAPI.reportClick(deliveryID: deliveryID)
+        #if DEBUG
+        print("PUSH tap: pid=\(pid ?? "-") post_id=\(info["post_id"] ?? "-") url=\(info["url"] ?? "-")")
+        #endif
 
-        // `action` may be null — then the tap simply opens the app (§2).
-        guard let urlString = info["url"] as? String,
-              !urlString.isEmpty,
-              let url = URL(string: urlString) else { return }
+        // A push with no action URL just opens the app.
+        guard let raw = info["url"] as? String,
+              let url = URL(string: raw),
+              let scheme = url.scheme?.lowercased(),
+              scheme == "https" || scheme == "http"
+        else { return }
+
+        // In web mode the URL already carries `pid` and the page reports the
+        // click itself. In a native install the page has never run here, so
+        // there is nothing to assume — report it ourselves. Idempotent either
+        // way, so a duplicate costs nothing and a miss zeroes out the funnel.
+        if !WebModeStore.isWebMode, let pid {
+            await PushClickReporter.report(pid: pid)
+        }
 
         await MainActor.run {
-            UIApplication.shared.open(url)
+            PushRoute.shared.request(url)
         }
     }
 }

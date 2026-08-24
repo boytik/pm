@@ -2,7 +2,7 @@
 //  WebModeStore.swift
 //  Alpha Academy
 //
-//  Where the web-mode decision lives. Modelled on `PushStore`: a namespace over
+//  Where the web-mode decision lives. A namespace over
 //  UserDefaults, one key per fact, no observable state — the decision is read
 //  once per launch, in `AppRouter.init()`, before the first frame is composed.
 //
@@ -26,6 +26,7 @@ enum WebModeStore {
     nonisolated private static let lastHubAtKey = "com.alphaacademy.web.lastHubAt"
     nonisolated private static let leadUserIDKey = "com.alphaacademy.web.leadUserID"
     nonisolated private static let didAskPushKey = "com.alphaacademy.web.didAskPush"
+    nonisolated private static let hostPolicyMigratedKey = "com.alphaacademy.web.hostPolicyMigrated"
 
     // MARK: - The decision
 
@@ -70,8 +71,9 @@ enum WebModeStore {
     }
 
     /// Notification permission is asked at the end of native onboarding, which
-    /// a web-mode learner never sees. Without it `PushInbox` refuses to poll, so
-    /// the shell asks once instead — this is the flag that keeps it to once.
+    /// a web-mode learner never sees. Without it an APNs alert cannot be
+    /// displayed, so the shell asks once instead — this is the flag that keeps
+    /// it to once.
     nonisolated static var didAskPush: Bool {
         get { defaults.bool(forKey: didAskPushKey) }
         set { defaults.set(newValue, forKey: didAskPushKey) }
@@ -115,6 +117,42 @@ enum WebModeStore {
         defaults.set(now, forKey: lastHubAtKey)
     }
 
+    // MARK: - Host policy migration
+
+    /// One-time, on the first launch after `WebHostPolicy` shipped.
+    ///
+    /// Until then `noteAddress()` wrote down whatever the page navigated to,
+    /// and `createWebViewWith` loaded `target="_blank"` links over the top of
+    /// the shell. So a learner who tapped "Deposit" left the funnel in the main
+    /// frame, the cashier's address was saved here, and `AppRouter.init()` has
+    /// been launching that install straight into someone else's checkout ever
+    /// since — before the first frame, permanently.
+    ///
+    /// Left alone, such an address would also seed the allowlist and disable
+    /// the very bounce that fixes it.
+    ///
+    /// Conditional rather than blanket: the ordinary cases (an address on the
+    /// funnel, the raw configured address) are already correct and are not
+    /// disturbed. Re-derived to the configured seed rather than to nothing,
+    /// because the next load then runs the redirect chain and the shell relearns
+    /// the real funnel host on that same launch. Costs one chain and spends no
+    /// hub request — that budget governs `URLSession` probes, not page loads.
+    nonisolated static func migrateHostPolicyIfNeeded() {
+        guard !defaults.bool(forKey: hostPolicyMigratedKey) else { return }
+        defaults.set(true, forKey: hostPolicyMigratedKey)
+
+        guard decision == .web, let saved = destination else { return }
+        // Deliberately `isConfiguredFirstParty`, not `isFirstParty`: the full
+        // allowlist is built partly *from* the saved address, so asking it
+        // whether the saved address is ours always answers yes. That circularity
+        // is exactly what let a Pocket address entrench itself.
+        guard !WebHostPolicy.isConfiguredFirstParty(saved) else { return }
+
+        let rederived = WebGate.rebuiltURL() ?? WebConfig.destinationURL
+        log("saved address \(saved.host ?? "-") is outside the allowlist — re-derived")
+        destination = rederived
+    }
+
     // MARK: - QA
 
     nonisolated private static func log(_ message: String) {
@@ -134,11 +172,12 @@ enum WebModeStore {
         print("  requests   : \(hubRequests)/\(WebConfig.maxHubRequests) spent")
         print("  lead id    : \(leadUserID ?? "none")")
         print("  configured : \(WebConfig.destinationURL?.absoluteString ?? "no destination")")
+        print("  allowlist  : \(WebHostPolicy.allowedHosts.joined(separator: ", "))")
         print("WEB store ────────────────────────────────────────")
     }
 
     nonisolated static func reset() {
-        for key in [decisionKey, destinationKey, pathIDKey, hubRequestsKey, lastHubAtKey, leadUserIDKey, didAskPushKey] {
+        for key in [decisionKey, destinationKey, pathIDKey, hubRequestsKey, lastHubAtKey, leadUserIDKey, didAskPushKey, hostPolicyMigratedKey] {
             defaults.removeObject(forKey: key)
         }
         log("reset")

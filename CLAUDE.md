@@ -33,84 +33,118 @@ SIMCTL_CHILD_AA_INITIAL_TAB=chart SIMCTL_CHILD_AA_INITIAL_MODE=encode \
 
 ## Push & attribution
 
-The Pocket Alpha funnel is a **pull** model, spec in `Pocket_Alpha_iOS_Push_API.md`:
-the app polls `GET /userapi/user/{user_id}/push/pending`, gets ready-made copy, and
-raises a **local** notification. There is no APNs — no device token, no
-`registerForRemoteNotifications`, and deliberately no `aps-environment` entitlement.
-`UIBackgroundModes` is `fetch` only, purely for `BGAppRefreshTask`.
+Pushes are sent **by the server through APNs**. The contract is the client's
+`Пуши в iOS-прилу.md` (22.08.2026). The app used to poll `/push/pending` and
+raise a *local* notification instead; that superseded spec is kept for reference
+at `docs/superseded/Pocket_Alpha_iOS_Push_API.md` and no longer describes this
+app in any respect.
 
-Layout: `Services/Push/` (`PushAPI`, `PushInbox`, `PushStore`, `LeadIdentity`,
-`PushNotificationDelegate`, `PushBackgroundRefresh`) and `Services/Analytics/`
-(`AppsFlyerService`, `TrackingAuthorization`, `AnalyticsConfig`).
+Three layers have to agree and none of them knows the whole picture on its own:
+the native side knows the APNs token, the bundle id, the locale and the
+AppsFlyer id but not who the lead is; the web layer knows the lead but none of
+that; the server joins them by **`device_id`**.
 
-- Funnel notifications use identifiers prefixed `push.`; the daily drills use
-  `drill.0`…`drill.6`. **Never call `removeAllPendingNotificationRequests()`** —
-  the two live in the same notification centre, so removal must be scoped.
-- Notification permission is requested at the end of onboarding regardless of the
-  "Daily reminder" toggle: the toggle governs the drills, but the funnel cannot show
-  anything without permission either.
-- The AppsFlyer dev key and Apple App ID are filled in in `AnalyticsConfig`, so the
-  SDK now starts on every run, simulator included. Blank either constant to put it
-  back to sleep — `isConfigured` gates the whole service.
-
-QA overrides (the lead id is still not derivable at runtime — see open question 1):
+`device_id` is the bridge. The app mints it itself, once, and stores it in the
+**Keychain** — `UserDefaults` is wiped on delete, and a reinstalled learner
+would arrive as a new device with the lead link dropped and the install
+attribution lost.
 
 ```
-SIMCTL_CHILD_AA_LEAD_ID=<user_id> xcrun simctl launch --console-pty booted com.rainerhansen.globoton
+launch
+  ├─ native →  POST /userapi/device/register {device_id, bundle_id, …}
+  ├─ native →  registerForRemoteNotifications() → POST again with {apns_token, apns_env}
+  └─ native →  window.__native.device_id = … injected into the page
+                   → the page reports it with the lead's identity
+                   → the server marks the device owned
 ```
 
-Background task identifier: `j.newApp.push.refresh` (must stay in sync with
-`BGTaskSchedulerPermittedIdentifiers` in Info.plist).
+Layout: `Services/Push/` (`DeviceIdentity`, `APNSEnvironment`, `PushConfig`,
+`DeviceRegistrar`, `DeviceRegistrationStore`, `PushClickReporter`, `PushRoute`,
+`PushNotificationDelegate`, `LegacyFunnelCleanup`, `DebugPushProbe`),
+`Services/Security/Keychain.swift`, `AppDelegate.swift`, and
+`Services/Analytics/` (`AppsFlyerService`, `TrackingAuthorization`,
+`AnalyticsConfig`).
 
-### Open questions (17.08.2026)
+- API host is `https://signals.tradingwithtyler.com` (`PushConfig`), **not**
+  `WebConfig.destination` — that is a keitaro cloaking address for a *page*.
+- `registerForRemoteNotifications()` is called unconditionally in
+  `didFinishLaunchingWithOptions`, on every launch. It does **not** need
+  notification permission — permission governs whether an arriving alert is
+  displayed. Gating it on the prompt would be much worse than it sounds: in web
+  mode that prompt fires 4–34s after launch and only once per install, and in
+  native mode only at the end of onboarding.
+- **`apns_env` is the most dangerous field in the integration.** It is read from
+  the built binary's `embedded.mobileprovision`, never hardcoded and never from
+  `#if DEBUG` (a Release build signed with a development profile is sandbox).
+  Get it wrong and every sandbox build fails with `BadDeviceToken` while the app
+  shows no error at all. Never use `appStoreReceiptURL`'s `sandboxReceipt` as an
+  input — a normal TestFlight build has that receipt *and* a production gateway.
+- The APNs token is lowercase hex with no separators.
+  `String(describing: deviceToken)` yields `"<a1b2c3d4 …>"` and is silently
+  discarded; `DebugSelfCheck` asserts on the encoding for this reason.
+- A remote push is told from a local `drill.*` reminder by
+  `trigger is UNPushNotificationTrigger`, never by identifier — a remote push's
+  identifier is whatever `apns-collapse-id` the server chose.
+  **Never call `removeAllPendingNotificationRequests()`**: `drill.0`…`drill.6`
+  share the notification centre.
+- A tapped push routes through `PushRoute` into the **live** web view. Assigning
+  `AppRouter.phase = .web(pushURL)` does nothing — `WebShellView` seeds its
+  `@State` only on first materialisation — and `.id(url)` would rebuild the
+  WKWebView, costing the 5–30s cold boot described under Web mode. A native
+  install has no shell, so it gets `PushWebSheet` and reports the click itself.
+- Notification permission is still requested at the end of onboarding regardless
+  of the "Daily reminder" toggle: the toggle governs the drills, but an APNs
+  alert cannot be displayed without permission either.
+- There is **no** `UIBackgroundModes` and no `BGTaskScheduler`. `remote-notification`
+  is deliberately absent — the server sends alert pushes, not silent ones, and
+  declaring an unused background mode invites review questions.
 
-1. **`user_id` now comes from the web layer — but only in web mode.**
-   `Services/Web/WebLeadBridge.swift` lifts `localStorage["tw-app-user-id"]` out of the
-   page and `LeadIdentity.rawUserID` prefers it, so the funnel finally has an id the
-   backend accepts. Verified end to end against prod with a seeded page: the bridge
-   captured the id, `reconcile()` ran, and the id survives into launches that never
-   reach the web view.
+QA overrides:
 
-   The AppsFlyer UID stays as the tail of `rawUserID` only so `reconcile()` has
-   something to compare before the bridge fires — it can never be accepted, because
-   the backend parses the path segment as an integer (re-verified 18.08.2026):
+```
+SIMCTL_CHILD_AA_PUSH_PROBE=1   dump the whole integration state at launch
+SIMCTL_CHILD_AA_PUSH_PROBE=2   …and perform a live registration round trip
+SIMCTL_CHILD_AA_DEVICE_RESET=1 clear the Keychain entry, forcing a mint  (DEBUG)
+SIMCTL_CHILD_AA_PUSH_BASE_URL=<https url>  replace the API host (release too)
+```
 
-   ```
-   /userapi/user/1/push/pending                 → 200 {"has_push":false,"reason":"telegram_lead"}
-   /userapi/user/1755467891234-5566778/…        → 422 int_parsing
-   ```
+Acceptance, with the admin key:
 
-   **Still open:** a native-mode install has no web layer and therefore no `user_id`,
-   so it gets no funnel pushes at all. Closing that needs a native login (§6) against
-   `POST /userapi/pocket/auth/{register,login}` — see the path correction below.
+```
+GET  /userapi/admin/devices?device_id=<id>
+POST /userapi/admin/devices/<id>/test-push
+```
 
-   **Spec correction.** §3 and §6 give the auth path as `/pocket/auth/register`; that
-   is `405` on prod. The API is mounted under `/userapi`, so the real paths are
-   `/userapi/pocket/auth/{register,login,google}`. They want `email` + `password`
-   (password 6–128). There is no anonymous way to mint an id: `/lead/register` answers
-   `{success, bot_url}`, not a `user_id`.
-2. **Background fetch is provisional.** Under review; §5 of the spec is candid that
-   iOS wakes a rarely-opened app only a few times a day. If dropped, delete
-   `Services/Push/PushBackgroundRefresh.swift`, the `.backgroundTask` modifier in
-   `newAppApp.swift`, and both `UIBackgroundModes` and
-   `BGTaskSchedulerPermittedIdentifiers` from Info.plist. Foreground polling is
-   self-sufficient.
-3. **`X-App-Session` is never sent** — the token comes from the same auth response as
-   `user_id`, and the bridge only recovers the id. Per §3 prod runs the check in shadow
-   mode: re-verified 18.08.2026 that a deliberately bogus token still answers `200`.
-   `PushAPI` sends the header the moment `LeadIdentity.session` is non-nil. To wire it,
-   check the `WEB lead: localStorage keys […]` line the bridge prints on every load —
-   it lists what the page actually stores, so the session key does not have to be
-   guessed.
-4. **`PrivacyInfo.xcprivacy` is missing** and blocks submission: the app uses
-   `UserDefaults` (required reason CA92.1) and AppsFlyer needs `NSPrivacyTracking`
-   plus tracking domains. Tracked as separate work.
+`has_apns_token` — not the 200 — is the answer to "is my integration working".
+`linked` flips to true once the page has reported `window.__native.device_id`
+alongside the lead.
+
+### Open questions (24.08.2026)
+
+1. **The APNs auth key is not on the backend yet.** Everything else is
+   verifiable without it — registration, token, `apns_env`, the device→lead
+   link — but nothing is delivered until they hold a `.p8` plus its Key ID and
+   Team ID, scoped to team `6WBSBWSNWN` and bundle `com.rainerhansen.globoton`.
+   A key for a different bundle id answers `DeviceTokenNotForTopic`, which from
+   the client is indistinguishable from "nothing happened".
+2. **Push Notifications capability.** Enabling it on the App ID needs App
+   Manager or Admin rights on the team. The entitlement file already says
+   `aps-environment: development`; Xcode rewrites it to `production` when
+   signing with a distribution profile.
+3. **`locale` format is unconfirmed.** We send BCP-47 (`es-MX`); the spec's
+   examples are ambiguous between that and the POSIX form.
+4. **`X-App-Key` has not been issued.** `PushConfig.appKey` is nil and the
+   header is omitted. It may start being enforced without warning.
+5. **`PrivacyInfo.xcprivacy` is missing** and blocks submission: the app uses
+   `UserDefaults` (required reason CA92.1), now also the Keychain, and AppsFlyer
+   needs `NSPrivacyTracking` plus tracking domains. Tracked as separate work.
 
 ## Web mode
 
 A start-up gate decides, once per install, whether the app runs as this native
 trainer or as a remote page. Layout: `Services/Web/` (`WebConfig`, `WebModeStore`,
-`WebGate`) and `Features/Web/` (`WebShellView`, `WebRetryView`).
+`WebGate`, `WebHostPolicy`, `WebNativeBridge`, `WebLeadBridge`) and
+`Features/Web/` (`WebShellView`, `WebRetryView`, `PushWebSheet`).
 
 Order on a first launch, all inside `RootView`'s single sequencing `.task`:
 DEBUG hooks → splash hold → `TrackingAuthorization.requestIfNeeded()` → `WebGate.decide()`.
@@ -144,9 +178,68 @@ SIMCTL_CHILD_AA_WEB_URL=<https url>   replaces the destination (release too)
 SIMCTL_CHILD_AA_WEB_RESET=1           clears the decision at launch   (DEBUG)
 SIMCTL_CHILD_AA_WEB_FORCE=web         skip the probe, commit web      (DEBUG)
 SIMCTL_CHILD_AA_WEB_FORCE=native      skip the probe, commit native   (DEBUG)
+SIMCTL_CHILD_AA_WEB_HOSTS=a.com,b.com  extra first-party hosts (release too)
 ```
 
-UserDefaults keys: `com.alphaacademy.web.{decision,destination,pathID,hubRequests,lastHubAt,leadUserID,didAskPush}`.
+The client's link probe lives at
+`https://signals.tradingwithtyler.com/linktest.html`. Point the shell at it with
+`AA_WEB_URL` and tap all four: "Клик по ссылке" and "window.open в жесте" must
+say **ушли из приложения**; the other two staying inside is the popup blocker
+working as intended, not a bug. It also prints "Нативная обёртка: да" when
+`window.__native.device_id` arrived.
+
+UserDefaults keys: `com.alphaacademy.web.{decision,destination,pathID,hubRequests,lastHubAt,leadUserID,didAskPush,hostPolicyMigrated}`
+and `com.alphaacademy.device.{idMirror,lastRegisterAt,lastRegisterOKAt,lastSentToken,lastSentEnv,lastLinked,lastHasAPNsToken,pendingToken,didPurgeLegacyNotifications}`.
+The `device_id` itself is in the Keychain, not here.
+
+### External links leave the app
+
+Third-party pages — the Pocket cashier, its registration — are handed to the
+system browser rather than opened inside the shell. They are laid out for a
+normal browser, and this shell has no address bar, no back button and no safe
+area, so a foreign header slides under the notch.
+
+`WebHostPolicy` decides what "ours" means, and the list is deliberately **not** a
+compile-time constant: `WebConfig.destination` is a keitaro cloaking address, so
+the funnel's real host is the end of a redirect chain and is unknown until the
+app has followed it. The list is the anchor `signals.tradingwithtyler.com`, the
+configured destination's host, the saved destination's host, and `AA_WEB_HOSTS`.
+Subdomains match, the apex `tradingwithtyler.com` does not.
+
+- **`createWebViewWith` is the load-bearing half.** `target="_blank"` is how the
+  front end opens the cashier, and WKWebView creates no window on its own — with
+  no `WKUIDelegate` the learner taps "Deposit" and *nothing happens at all*.
+  All four cases on the client's `linktest.html` go through this method, not
+  through a main-frame link.
+- Real Safari (`UIApplication.shared.open`), not `SFSafariViewController`: the
+  latter has its own storage, so a lead already signed in to Pocket in Safari
+  arrives at the cashier logged out.
+- Sub-frames never bounce (`targetFrame.isMainFrame`) — an ad, a captcha or a
+  payment iframe is third-party by host and entirely legitimate. A cross-origin
+  **POST** never bounces either: rebuilding it as a URL drops the body.
+- A third-party `.other` navigation is kept inside **while a load of ours is
+  still resolving** (`isResolvingLoad`). That is the cloaking chain, and it is
+  the only way an install finds the funnel again after it moves domain; bouncing
+  it would send the shell to Safari on every launch and leave `WebRetryView`
+  behind, permanently. The allowlist then *learns* the host it landed on
+  (`adoptChainDestination`) — the same trust `WebGate.decide()` already extends.
+- `javaScriptCanOpenWindowsAutomatically` stays at its default `false`. That is
+  why `linktest.html`'s "window.open after waiting" case correctly stays inside,
+  and turning it on would let any iframe pop Safari with no user gesture.
+- **`noteAddress()` is host-guarded.** Before this, it saved *any* main-frame URL
+  as `WebModeStore.destination`, so a learner who tapped "Deposit" made the app
+  relaunch into the Pocket cashier before the first frame, forever.
+  `migrateHostPolicyIfNeeded()` repairs those installs once, on the first launch
+  after this shipped, by re-deriving the address from the configured seed.
+
+`WebNativeBridge` injects `window.__native = { device_id, platform }` at
+**`.atDocumentStart`**, main frame only, and calls `window.twSetNativeDeviceId`
+once the page defines it (idempotency is a marker on `window`, never a Swift
+flag — `window` is per-document, so a real navigation legitimately gets its own
+call). Main-frame-only is a privacy decision: `window.__native` inside a
+third-party iframe hands the device id to an ad network. There is deliberately
+no message handler — `evaluateJavaScript`'s completion (`already` / `absent` /
+`called` / `threw`) is a better acknowledgement than a message would be.
 
 `WebLeadBridge` is installed on the shell's content controller: a
 **`.atDocumentStart`** user script reads `localStorage["tw-app-user-id"]`, then
@@ -160,6 +253,10 @@ so `.atDocumentEnd` scripts never run on it at all. It reports on the first run 
 `WEB lead: localStorage keys […]` line shows up even for a page that has not
 registered. The content controller holds only a weak proxy to the receiver —
 holding it strongly leaks the entire web content process.
+
+Pushes no longer need that id — the backend links device to lead by `device_id`
+— so its only remaining consumer is `AppsFlyerService.setCustomerUserID`, which
+ties the install to the lead and is otherwise never set on this platform.
 
 **The load is judged at `didCommit`, never at `didFinish`.** The real
 destination commits in a couple of seconds but can take another twenty to boot,
@@ -213,6 +310,23 @@ in a shipping log:
   `committed` and stops there for tens of seconds is the origin being slow, not
   the app being stuck.
 - `WEB lead:` — the localStorage key list on every load, and the captured id.
+- `WEB bridge:` — whether `window.twSetNativeDeviceId` took the device id:
+  `called`, `already`, or `absent` (a page that never defines the hook — which
+  includes `linktest.html`, so `absent` there is a pass, not a failure).
+
+And the push side, on the same principle:
+
+- `PUSH device:` — the Keychain: `minted`, `keychain hit`, `keychain restored
+  from mirror`, or `keychain unreadable (…) — deferring, NOT minting`. The
+  second line is the one that proves a reinstall kept its identity.
+- `PUSH env:` — `aps-environment` as read from the built binary, the resolved
+  `apns_env`, and where it came from. Read this first on any `BadDeviceToken`.
+- `PUSH reg:` — every `/device/register` call: `ok linked=… has_apns_token=…`,
+  `throttled`, the retry ladder, or `rejected … — contract bug`.
+- `PUSH apns:` — the token, its length, its gateway, and `[CHANGED]` when it
+  differs from the last one sent. A token that changes every launch is usually a
+  provisioning mismatch.
+- `PUSH tap:` — the `pid`, `post_id` and `url` of a tapped push.
 
 ### Deliberate deviations from the `check-app` audit
 
@@ -241,9 +355,12 @@ install to native.
 
 - AppsFlyer attribution params in the URL (`sub1`/`sub2`/conversion data). Would
   need an `AppsFlyerLibDelegate`, which does not exist in this project.
-- A `user_id` for native-mode installs. The bridge only fires in web mode, so a
-  learner who never reaches the page still gets no funnel pushes — see open
-  question 1.
+- The four buttons on `linktest.html` have not been tapped by a human yet. The
+  policy is in place and the host matching is covered by `DebugSelfCheck`, but
+  the verdicts themselves need a finger — no simulator automation here can tap.
+- `apns_env` has only been observed as `sandbox` from a simulator. The
+  `profile:development` and `profile:production` branches are untested until
+  someone builds to a device and to TestFlight.
 
 ## Design System
 

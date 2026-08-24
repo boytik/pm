@@ -10,6 +10,7 @@
 
 import SwiftUI
 import WebKit
+import Combine
 
 struct WebShellView: View {
     let destination: URL
@@ -18,6 +19,8 @@ struct WebShellView: View {
     @State private var didExhaustRecovery = false
     /// One rescue per app session, on top of the lifetime request budget.
     @State private var didTryRescue = false
+
+    @ObservedObject private var route = PushRoute.shared
 
     init(destination: URL) {
         self.destination = destination
@@ -44,6 +47,18 @@ struct WebShellView: View {
         // does its own keyboard avoidance, and SwiftUI's compounds with it into
         // a form whose focused field scrolls off the screen.
         .ignoresSafeArea()
+        // A tapped push. `@Published` replays its current value to every new
+        // subscriber, so this covers the cold-start tap — where the delegate
+        // publishes before this view first appears — with the same one line as
+        // the warm one. Reloading the live web view rather than rebuilding it
+        // keeps the cookies, the content process and the boot the learner has
+        // already paid for.
+        .onReceive(route.$pendingURL.compactMap { $0 }) { url in
+            log("push tap → \(url.absoluteString)")
+            didExhaustRecovery = false      // a tap must escape the retry screen
+            currentURL = url
+            route.consume()
+        }
     }
 
     /// Attempt 1 was the saved address. Attempt 2, once per install, is that
@@ -79,9 +94,13 @@ struct WebShellView: View {
     }
 
     /// Asked here because native onboarding — where the app normally asks —
-    /// never runs in web mode, and `PushInbox` will not poll without it. Held
-    /// until the page has actually rendered, so it does not stack on top of a
-    /// modal the page may raise itself.
+    /// never runs in web mode, and an APNs alert cannot be displayed without
+    /// it. Held until the page has actually rendered, so it does not stack on
+    /// top of a modal the page may raise itself.
+    ///
+    /// The device is registered for remote notifications at launch regardless,
+    /// so a learner who declines here still has a token on file — only the
+    /// display is withheld.
     private func askForNotificationsIfNeeded() {
         guard !WebModeStore.didAskPush else { return }
         WebModeStore.didAskPush = true
@@ -89,7 +108,6 @@ struct WebShellView: View {
             try? await Task.sleep(nanoseconds: 2_000_000_000)
             let granted = await NotificationService.requestAuthorization()
             log("notification permission \(granted ? "granted" : "refused")")
-            if granted { await PushInbox.shared.pollIfDue(reason: .foreground, force: true) }
         }
     }
 
@@ -136,6 +154,11 @@ private struct WebSurface: UIViewRepresentable {
             on: config.userContentController,
             receiver: context.coordinator.leadReceiver
         )
+        // Hands `window.__native.device_id` to the page — the only way the
+        // backend can tell which lead owns this handset (§2 of the push spec).
+        if let deviceID = DeviceIdentity.current() {
+            WebNativeBridge.install(on: config.userContentController, deviceID: deviceID)
+        }
 
         let view = WKWebView(frame: .zero, configuration: config)
         view.allowsBackForwardNavigationGestures = true
@@ -171,7 +194,10 @@ private struct WebSurface: UIViewRepresentable {
     }
 
     static func dismantleUIView(_ view: WKWebView, coordinator: Coordinator) {
+        // Both call `removeAllUserScripts()`, so order does not matter — but
+        // both are called, so neither is silently relied on to clean the other.
         WebLeadBridge.remove(from: view.configuration.userContentController)
+        WebNativeBridge.remove(from: view.configuration.userContentController)
         coordinator.detach()
     }
 
@@ -186,6 +212,10 @@ private struct WebSurface: UIViewRepresentable {
         private var stallWatchdog: Task<Void, Never>?
         private var didReachPage = false
         private var didReportFailure = false
+        /// True from the moment a main-frame load starts until it commits or
+        /// fails. A policy decision that arrives inside that window is a hop in
+        /// a redirect chain, not something the page decided to do on its own.
+        private var provisionalInFlight = false
         private var didReportStall = false
         private var didSignalReady = false
         private var readyFallback: Task<Void, Never>?
@@ -239,11 +269,17 @@ private struct WebSurface: UIViewRepresentable {
             readyFallback = nil
         }
 
+        /// The initial resolution of a load *we* asked for. `didReachPage` is
+        /// only reset by `load(_:)`, so this is true exactly once per
+        /// shell-initiated load and never again while the page navigates itself.
+        private var isResolvingLoad: Bool { provisionalInFlight || !didReachPage }
+
         func load(_ url: URL) {
             lastRequested = url
             didReachPage = false
             didReportFailure = false
             didReportStall = false
+            provisionalInFlight = true
             startWatchdog()
             log("loading \(url.absoluteString)")
             view?.load(URLRequest(url: url))
@@ -261,7 +297,45 @@ private struct WebSurface: UIViewRepresentable {
                   scheme == "http" || scheme == "https",
                   current.absoluteString != WebModeStore.destination?.absoluteString
             else { return }
+
+            // The saved address is what the next cold launch opens *and* what
+            // the allowlist is built from, so an address that is not already
+            // ours can never be written here. Without this guard one visit to
+            // the cashier makes the app relaunch into Pocket Option — and then
+            // whitelists it, disabling the bounce that would have prevented it.
+            guard WebHostPolicy.isFirstParty(current) else {
+                log("address \(current.host ?? "-") is not ours — saved address left at "
+                    + "\(WebModeStore.destination?.host ?? "none")")
+                return
+            }
+
+            // A push URL carries `?pid=…`. Letting it become the saved address
+            // would make every future cold launch look like a click on a stale
+            // push, permanently.
+            if PushRoute.shared.shouldSuppressAddressWrite() {
+                log("address from a push tap — not saved")
+                return
+            }
+
             onAddressChange(current)
+        }
+
+        /// The allowlist grows in exactly one place: the end of a redirect
+        /// chain that *we* started from an address that was already ours. This
+        /// is the same trust `WebGate.decide()` extends when it follows the
+        /// cloaker to the funnel and hands `http.url` to `commitWeb`.
+        ///
+        /// Without it, an install whose saved address is still the raw
+        /// configured one — which is every install that has ever used the
+        /// `pathid` rescue — would treat the funnel it lands on as third-party
+        /// and throw the entire product out to Safari.
+        private func adoptChainDestination(_ committed: URL) {
+            guard let started = lastRequested,
+                  WebHostPolicy.isFirstParty(started),
+                  !WebHostPolicy.isFirstParty(committed)
+            else { return }
+            log("chain from \(started.host ?? "-") landed on \(committed.host ?? "-") — adopting as ours")
+            WebModeStore.destination = committed
         }
 
         // MARK: Watchdog
@@ -382,6 +456,7 @@ private struct WebSurface: UIViewRepresentable {
             _ webView: WKWebView,
             didStartProvisionalNavigation navigation: WKNavigation!
         ) {
+            provisionalInFlight = true
             log("started \(webView.url?.absoluteString ?? "-")")
         }
 
@@ -392,22 +467,40 @@ private struct WebSurface: UIViewRepresentable {
         /// anything can be held to: the real destination commits in under a
         /// second and finishes well past ten.
         func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+            provisionalInFlight = false
             log("committed \(webView.url?.absoluteString ?? "-")")
 
+            // Not just at `didFinish`: this destination is a single-page app
+            // that may never fire it.
+            pushDeviceID(to: webView)
+
             guard !didReachPage,
-                  let scheme = webView.url?.scheme?.lowercased(),
+                  let committed = webView.url,
+                  let scheme = committed.scheme?.lowercased(),
                   scheme == "http" || scheme == "https"
             else { return }
 
             didReachPage = true
             cancelWatchdog()
+            adoptChainDestination(committed)   // before noteAddress, which then no-ops
             noteAddress()
             startReadyFallback()
             startStallWatchdog()
         }
 
+        private func pushDeviceID(to webView: WKWebView) {
+            guard let deviceID = DeviceIdentity.current() else { return }
+            WebNativeBridge.push(to: webView, deviceID: deviceID) { result in
+                #if DEBUG
+                print("WEB bridge: device_id \(result)")
+                #endif
+            }
+        }
+
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            provisionalInFlight = false
             log("finished \(webView.url?.absoluteString ?? "-")")
+            pushDeviceID(to: webView)
             cancelStallWatchdog()
             webView.scrollView.refreshControl?.endRefreshing()
             noteAddress()
@@ -431,14 +524,28 @@ private struct WebSurface: UIViewRepresentable {
         }
 
         private func handle(_ error: Error) {
+            provisionalInFlight = false
             let ns = error as NSError
             log("failed \(ns.code) \(ns.domain) — \(ns.localizedDescription)")
             // A cancellation is usually the page redirecting over itself.
             guard ns.code != NSURLErrorCancelled else { return }
+            // And code 102 is how a `.cancel` policy decision surfaces. A link
+            // bounced to Safari before the page committed is not a load
+            // failure, and treating it as one would spend the one `pathid`
+            // rescue on a page that is perfectly healthy.
+            guard !(ns.domain == "WebKitErrorDomain" && ns.code == 102) else { return }
             guard !didReachPage else { return }
             reportFailure()
         }
 
+        /// Our host stays inside; everything else goes to the system browser.
+        ///
+        /// The pages this exists for — the Pocket cashier, its registration —
+        /// are laid out for a normal browser, and this shell has no address
+        /// bar, no back button and no safe area, so a third-party header slides
+        /// under the notch. Handing them to Safari also keeps the learner's
+        /// existing Pocket session, autofill and password manager, which an
+        /// in-app browser with its own cookie jar would not.
         func webView(
             _ webView: WKWebView,
             decidePolicyFor navigationAction: WKNavigationAction,
@@ -451,14 +558,119 @@ private struct WebSurface: UIViewRepresentable {
                 return
             }
 
+            // 1. Schemes a web view cannot load at all — tg:, mailto:, tel:.
+            //    Decided before the frame checks on purpose: a `target="_blank"`
+            //    link to `tg://` has to be cancelled here, or WebKit goes on to
+            //    ask for a window that will never be used. about/blob/data are
+            //    the page's own plumbing (`about:blank` is what WebKit hands
+            //    `window.open`) and UIApplication can do nothing with either.
             switch scheme {
-            case "http", "https", "about", "blob", "data":
+            case "http", "https":
+                break
+            case "about", "blob", "data", "file":
                 decisionHandler(.allow)
+                return
             default:
-                // `open` rather than `canOpenURL`: the latter needs every scheme
-                // declared in LSApplicationQueriesSchemes, this needs nothing.
                 decisionHandler(.cancel)
-                UIApplication.shared.open(url)
+                openExternally(url, reason: "scheme \(scheme)")
+                return
+            }
+
+            // 2. Sub-frames never bounce. An ad, a chat widget, a payment or
+            //    captcha iframe is third-party by host and entirely legitimate;
+            //    sending one to Safari empties the frame and opens a browser on
+            //    a fragment of a page. `targetFrame`, not `sourceFrame`: a link
+            //    inside an iframe with `target="_top"` aims at the main frame
+            //    and has to be judged as a main-frame navigation.
+            if let target = navigationAction.targetFrame, !target.isMainFrame {
+                decisionHandler(.allow)
+                return
+            }
+
+            // 3. A request for a new window — `target="_blank"` or
+            //    `window.open`. Allowed only so WebKit goes on to ask
+            //    `createWebViewWith`, which is the one place this case is
+            //    decided. Deciding it here as well opens Safari twice.
+            guard navigationAction.targetFrame != nil else {
+                decisionHandler(.allow)
+                return
+            }
+
+            // 4. Main frame, ours.
+            if WebHostPolicy.isFirstParty(url) {
+                decisionHandler(.allow)
+                return
+            }
+
+            // 5. Main frame, someone else's.
+            switch navigationAction.navigationType {
+            case .linkActivated:
+                decisionHandler(.cancel)
+                openExternally(url, reason: "third-party link")
+
+            case .formSubmitted, .formResubmitted:
+                // Only a GET form survives being rebuilt as a URL. Bouncing a
+                // POST drops the body and lands the learner on a page with no
+                // idea what they filled in — worse than the notch.
+                if navigationAction.request.httpMethod?.uppercased() == "GET" {
+                    decisionHandler(.cancel)
+                    openExternally(url, reason: "third-party GET form")
+                } else {
+                    log("third-party POST kept inside (body would be lost) — \(url.host ?? "-")")
+                    decisionHandler(.allow)
+                }
+
+            case .backForward, .reload:
+                // Revisiting something already reached. Bouncing here breaks the
+                // edge swipe, which is the only back button this shell has.
+                log("third-party \(Self.describe(navigationAction.navigationType)) kept inside — \(url.host ?? "-")")
+                decisionHandler(.allow)
+
+            default:
+                // `.other`: a server 3xx, a meta refresh, or `location.href = …`.
+                // While a load of ours is still resolving, this is the cloaking
+                // chain — and the only way an install finds the funnel again
+                // after it moves domain. Bouncing that would send the shell to
+                // Safari on every launch and leave `WebRetryView` behind,
+                // permanently. Once the page has settled the same type means the
+                // page is acting, and it bounces.
+                if isResolvingLoad {
+                    log("third-party redirect kept inside (chain in flight) — \(url.host ?? "-")")
+                    decisionHandler(.allow)
+                } else {
+                    decisionHandler(.cancel)
+                    openExternally(url, reason: "third-party scripted navigation")
+                }
+            }
+        }
+
+        /// `UIApplication.shared.open` — the real Safari, not
+        /// `SFSafariViewController`. The latter has its own storage, so a lead
+        /// already signed in to Pocket in Safari arrives at the cashier logged
+        /// out: one more step in the flow that matters most.
+        ///
+        /// `open` rather than `canOpenURL`: the latter needs every scheme
+        /// declared in `LSApplicationQueriesSchemes`, this needs nothing. The
+        /// completion handler is not decoration — `tg://` with Telegram absent
+        /// returns false and does nothing at all, which is indistinguishable
+        /// from the bug this whole change exists to fix.
+        private func openExternally(_ url: URL, reason: String) {
+            log("→ Safari (\(reason)): \(url.absoluteString)")
+            UIApplication.shared.open(url, options: [:]) { [weak self] opened in
+                guard !opened else { return }
+                self?.log("→ Safari FAILED, nothing opened: \(url.absoluteString)")
+            }
+        }
+
+        private static func describe(_ type: WKNavigationType) -> String {
+            switch type {
+            case .linkActivated:   return "linkActivated"
+            case .formSubmitted:   return "formSubmitted"
+            case .backForward:     return "backForward"
+            case .reload:          return "reload"
+            case .formResubmitted: return "formResubmitted"
+            case .other:           return "other"
+            @unknown default:      return "unknown(\(type.rawValue))"
             }
         }
 
@@ -484,16 +696,43 @@ private struct WebSurface: UIViewRepresentable {
 
         // MARK: WKUIDelegate
 
-        /// `target=_blank` has nowhere else to go without a navigation bar.
+        /// The one the front end actually uses: the cashier and the
+        /// registration are opened with `target="_blank"`. WKWebView creates no
+        /// window on its own, so without this method the learner taps "Deposit"
+        /// and literally nothing happens.
         func webView(
             _ webView: WKWebView,
             createWebViewWith configuration: WKWebViewConfiguration,
             for navigationAction: WKNavigationAction,
             windowFeatures: WKWindowFeatures
         ) -> WKWebView? {
-            if let url = navigationAction.request.url {
-                webView.load(URLRequest(url: url))
+            guard let url = navigationAction.request.url else {
+                log("window requested with no URL — ignored")
+                return nil
             }
+            let scheme = url.scheme?.lowercased() ?? ""
+
+            switch scheme {
+            case "http", "https":
+                if WebHostPolicy.isFirstParty(url) {
+                    // Ours. There is no navigation bar to give a second window,
+                    // so it loads over the top of this one — what this method
+                    // has always done, now limited to addresses we own.
+                    log("window (first-party) → same view: \(url.absoluteString)")
+                    webView.load(URLRequest(url: url))
+                } else {
+                    openExternally(url, reason: "window, third-party")
+                }
+            case "about", "blob", "data", "":
+                // `window.open()` with no argument, or a page-internal payload:
+                // nothing to load and nothing the system could open.
+                log("window for \(scheme.isEmpty ? "-" : scheme) — ignored")
+            default:
+                openExternally(url, reason: "window, scheme \(scheme)")
+            }
+
+            // Always nil: returning a web view obliges us to give it a place on
+            // screen and a lifetime, and this shell has neither.
             return nil
         }
 
