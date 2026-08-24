@@ -115,6 +115,9 @@ GET  /userapi/admin/devices?device_id=<id>
 POST /userapi/admin/devices/<id>/test-push
 ```
 
+End-to-end delivery was confirmed on 24.08.2026: the backend holds the APNs
+auth key and pushes arrive on the handset.
+
 `has_apns_token` — not the 200 — is the answer to "is my integration working".
 `linked` flips to true once the page has reported `window.__native.device_id`
 alongside the lead — confirmed against prod on 24.08.2026, with the page
@@ -122,21 +125,11 @@ storing the id under `localStorage["tw-native-device-id"]`.
 
 ### Open questions (24.08.2026)
 
-1. **The APNs auth key is not on the backend yet.** Everything else is
-   verifiable without it — registration, token, `apns_env`, the device→lead
-   link — but nothing is delivered until they hold a `.p8` plus its Key ID and
-   Team ID, scoped to team `6WBSBWSNWN` and bundle `com.rainerhansen.globoton`.
-   A key for a different bundle id answers `DeviceTokenNotForTopic`, which from
-   the client is indistinguishable from "nothing happened".
-2. **Push Notifications capability.** Enabling it on the App ID needs App
-   Manager or Admin rights on the team. The entitlement file already says
-   `aps-environment: development`; Xcode rewrites it to `production` when
-   signing with a distribution profile.
-3. **`locale` format is unconfirmed.** We send BCP-47 (`es-MX`); the spec's
+1. **`locale` format is unconfirmed.** We send BCP-47 (`es-MX`); the spec's
    examples are ambiguous between that and the POSIX form.
-4. **`X-App-Key` has not been issued.** `PushConfig.appKey` is nil and the
+2. **`X-App-Key` has not been issued.** `PushConfig.appKey` is nil and the
    header is omitted. It may start being enforced without warning.
-5. **`PrivacyInfo.xcprivacy` is missing** and blocks submission: the app uses
+3. **`PrivacyInfo.xcprivacy` is missing** and blocks submission: the app uses
    `UserDefaults` (required reason CA92.1), now also the Keychain, and AppsFlyer
    needs `NSPrivacyTracking` plus tracking domains. Tracked as separate work.
 
@@ -371,9 +364,11 @@ install to native.
 - The four buttons on `linktest.html` have not been tapped one by one, though
   the real thing has: on 24.08.2026 the funnel's own Deposit button bounced to
   Safari and the backend answered `linked=true`, which is the whole chain.
-- `apns_env` has only been observed as `sandbox` from a simulator. The
-  `profile:development` and `profile:production` branches are untested until
-  someone builds to a device and to TestFlight.
+- `apns_env` has been exercised only for the build that pushes were confirmed
+  on. The other branch — whichever of `profile:development` /
+  `profile:production` that was not — stays untested until the app is built the
+  other way. If pushes ever work from Xcode but not from TestFlight, or the
+  reverse, the `PUSH env:` line is the first thing to read.
 
 ## Design System
 
