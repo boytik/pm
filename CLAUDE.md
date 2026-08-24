@@ -143,7 +143,7 @@ alongside the lead.
 
 A start-up gate decides, once per install, whether the app runs as this native
 trainer or as a remote page. Layout: `Services/Web/` (`WebConfig`, `WebModeStore`,
-`WebGate`, `WebHostPolicy`, `WebNativeBridge`, `WebLeadBridge`) and
+`WebGate`, `WebHostPolicy`, `WebWindowPolicy`, `WebNativeBridge`, `WebLeadBridge`) and
 `Features/Web/` (`WebShellView`, `WebRetryView`, `PushWebSheet`).
 
 Order on a first launch, all inside `RootView`'s single sequencing `.task`:
@@ -210,7 +210,18 @@ Subdomains match, the apex `tradingwithtyler.com` does not.
   front end opens the cashier, and WKWebView creates no window on its own — with
   no `WKUIDelegate` the learner taps "Deposit" and *nothing happens at all*.
   All four cases on the client's `linktest.html` go through this method, not
-  through a main-frame link.
+  through a main-frame link. `WebWindowPolicy` handles the three shapes such a
+  request takes; each one fails as "nothing happens" if it is missed, which is
+  indistinguishable from having no delegate at all:
+  a `window.open` inside the tap, one **after** awaiting the server, and
+  `window.open('', '_blank')` with the address assigned later.
+- **`javaScriptCanOpenWindowsAutomatically` is deliberately `true`.** Its
+  default of `false` is what made "Deposit" do nothing: the front end opens the
+  cashier after a server round trip, by which point the tap's gesture is spent
+  and WebKit discards the call without ever asking the UI delegate — no
+  callback, no log line, no symptom beyond silence. Turning it on does not let
+  the page open windows; it lets the request *reach* us. What keeps an ad from
+  abusing it is `sourceFrame.isMainFrame` in `WebWindowPolicy`, not the blocker.
 - Real Safari (`UIApplication.shared.open`), not `SFSafariViewController`: the
   latter has its own storage, so a lead already signed in to Pocket in Safari
   arrives at the cashier logged out.
@@ -223,9 +234,6 @@ Subdomains match, the apex `tradingwithtyler.com` does not.
   it would send the shell to Safari on every launch and leave `WebRetryView`
   behind, permanently. The allowlist then *learns* the host it landed on
   (`adoptChainDestination`) — the same trust `WebGate.decide()` already extends.
-- `javaScriptCanOpenWindowsAutomatically` stays at its default `false`. That is
-  why `linktest.html`'s "window.open after waiting" case correctly stays inside,
-  and turning it on would let any iframe pop Safari with no user gesture.
 - **`noteAddress()` is host-guarded.** Before this, it saved *any* main-frame URL
   as `WebModeStore.destination`, so a learner who tapped "Deposit" made the app
   relaunch into the Pocket cashier before the first frame, forever.
@@ -355,9 +363,10 @@ install to native.
 
 - AppsFlyer attribution params in the URL (`sub1`/`sub2`/conversion data). Would
   need an `AppsFlyerLibDelegate`, which does not exist in this project.
-- The four buttons on `linktest.html` have not been tapped by a human yet. The
-  policy is in place and the host matching is covered by `DebugSelfCheck`, but
-  the verdicts themselves need a finger — no simulator automation here can tap.
+- The four buttons on `linktest.html` have not been tapped by a human yet. Every
+  window shape they use is covered by an automated probe (a local page that
+  calls `window.open` on a timer, which reaches the delegate now the blocker is
+  off), but the page's own verdicts need a finger.
 - `apns_env` has only been observed as `sandbox` from a simulator. The
   `profile:development` and `profile:production` branches are untested until
   someone builds to a device and to TestFlight.

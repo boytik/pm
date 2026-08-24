@@ -146,6 +146,14 @@ private struct WebSurface: UIViewRepresentable {
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
         config.defaultWebpagePreferences.allowsContentJavaScript = true
+        // Off by default, and that default is what made "Deposit" do nothing:
+        // the front end opens the cashier with `window.open` AFTER a server
+        // round trip, by which point the tap's gesture is spent and WebKit's
+        // popup blocker discards the call without ever asking the UI delegate.
+        // Turning it on does not mean the page gets to open windows — it means
+        // the request reaches `createWebViewWith`, where we decide. Requests
+        // from sub-frames are refused there, so an ad cannot use this.
+        config.preferences.javaScriptCanOpenWindowsAutomatically = true
         // The default, persistent store: a funnel login has to survive relaunch.
         config.websiteDataStore = .default()
         // Lifts `localStorage["tw-app-user-id"]` out of the page — the only
@@ -699,41 +707,23 @@ private struct WebSurface: UIViewRepresentable {
         /// The one the front end actually uses: the cashier and the
         /// registration are opened with `target="_blank"`. WKWebView creates no
         /// window on its own, so without this method the learner taps "Deposit"
-        /// and literally nothing happens.
+        /// and literally nothing happens. `WebWindowPolicy` covers the three
+        /// shapes that request can take — see its header.
         func webView(
             _ webView: WKWebView,
             createWebViewWith configuration: WKWebViewConfiguration,
             for navigationAction: WKNavigationAction,
             windowFeatures: WKWindowFeatures
         ) -> WKWebView? {
-            guard let url = navigationAction.request.url else {
-                log("window requested with no URL — ignored")
-                return nil
-            }
-            let scheme = url.scheme?.lowercased() ?? ""
-
-            switch scheme {
-            case "http", "https":
-                if WebHostPolicy.isFirstParty(url) {
-                    // Ours. There is no navigation bar to give a second window,
-                    // so it loads over the top of this one — what this method
-                    // has always done, now limited to addresses we own.
-                    log("window (first-party) → same view: \(url.absoluteString)")
-                    webView.load(URLRequest(url: url))
-                } else {
-                    openExternally(url, reason: "window, third-party")
+            WebWindowPolicy.newWindow(
+                parent: webView,
+                configuration: configuration,
+                for: navigationAction,
+                log: { [weak self] in self?.log($0) },
+                openExternally: { [weak self] url, reason in
+                    self?.openExternally(url, reason: reason)
                 }
-            case "about", "blob", "data", "":
-                // `window.open()` with no argument, or a page-internal payload:
-                // nothing to load and nothing the system could open.
-                log("window for \(scheme.isEmpty ? "-" : scheme) — ignored")
-            default:
-                openExternally(url, reason: "window, scheme \(scheme)")
-            }
-
-            // Always nil: returning a web view obliges us to give it a place on
-            // screen and a lifetime, and this shell has neither.
-            return nil
+            )
         }
 
         // WKUIDelegate has no default implementation for these, so without them

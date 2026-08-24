@@ -65,6 +65,9 @@ private struct PushWebView: UIViewRepresentable {
         // The same store the shell would use, so a session established here is
         // not thrown away.
         config.websiteDataStore = .default()
+        // Same reason as the shell: without it an async `window.open` is
+        // discarded by the popup blocker before the delegate is asked.
+        config.preferences.javaScriptCanOpenWindowsAutomatically = true
         if let deviceID = DeviceIdentity.current() {
             WebNativeBridge.install(on: config.userContentController, deviceID: deviceID)
         }
@@ -146,17 +149,22 @@ private struct PushWebView: UIViewRepresentable {
             for navigationAction: WKNavigationAction,
             windowFeatures: WKWindowFeatures
         ) -> WKWebView? {
-            guard let url = navigationAction.request.url,
-                  let scheme = url.scheme?.lowercased(),
-                  scheme == "http" || scheme == "https"
-            else { return nil }
-
-            if WebHostPolicy.isFirstParty(url) {
-                webView.load(URLRequest(url: url))
-            } else {
-                UIApplication.shared.open(url)
-            }
-            return nil
+            WebWindowPolicy.newWindow(
+                parent: webView,
+                configuration: configuration,
+                for: navigationAction,
+                log: { message in
+                    #if DEBUG
+                    print("WEB nav: \(message)")
+                    #endif
+                },
+                openExternally: { url, reason in
+                    #if DEBUG
+                    print("WEB nav: → Safari (\(reason)): \(url.absoluteString)")
+                    #endif
+                    UIApplication.shared.open(url)
+                }
+            )
         }
 
         func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
