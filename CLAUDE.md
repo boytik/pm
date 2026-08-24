@@ -117,7 +117,8 @@ POST /userapi/admin/devices/<id>/test-push
 
 `has_apns_token` — not the 200 — is the answer to "is my integration working".
 `linked` flips to true once the page has reported `window.__native.device_id`
-alongside the lead.
+alongside the lead — confirmed against prod on 24.08.2026, with the page
+storing the id under `localStorage["tw-native-device-id"]`.
 
 ### Open questions (24.08.2026)
 
@@ -228,6 +229,10 @@ Subdomains match, the apex `tradingwithtyler.com` does not.
 - Sub-frames never bounce (`targetFrame.isMainFrame`) — an ad, a captcha or a
   payment iframe is third-party by host and entirely legitimate. A cross-origin
   **POST** never bounces either: rebuilding it as a URL drops the body.
+- **The cashier is not on `pocketoption.com`.** Observed 24.08.2026, Deposit
+  opens `https://go1.urlpress.co/cabinet/deposit-step-1?token=…`, and that host
+  rotates. This is why the policy is an allowlist of what is ours rather than a
+  denylist of Pocket's domains — the latter would have missed this entirely.
 - A third-party `.other` navigation is kept inside **while a load of ours is
   still resolving** (`isResolvingLoad`). That is the cloaking chain, and it is
   the only way an install finds the funnel again after it moves domain; bouncing
@@ -363,10 +368,9 @@ install to native.
 
 - AppsFlyer attribution params in the URL (`sub1`/`sub2`/conversion data). Would
   need an `AppsFlyerLibDelegate`, which does not exist in this project.
-- The four buttons on `linktest.html` have not been tapped by a human yet. Every
-  window shape they use is covered by an automated probe (a local page that
-  calls `window.open` on a timer, which reaches the delegate now the blocker is
-  off), but the page's own verdicts need a finger.
+- The four buttons on `linktest.html` have not been tapped one by one, though
+  the real thing has: on 24.08.2026 the funnel's own Deposit button bounced to
+  Safari and the backend answered `linked=true`, which is the whole chain.
 - `apns_env` has only been observed as `sandbox` from a simulator. The
   `profile:development` and `profile:production` branches are untested until
   someone builds to a device and to TestFlight.
