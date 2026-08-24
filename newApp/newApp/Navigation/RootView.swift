@@ -111,6 +111,7 @@ struct RootView: View {
 /// `UITabBarAppearance`, and the system bar would fight the dark field.
 struct MainTabView: View {
     @EnvironmentObject private var router: AppRouter
+    @ObservedObject private var route = PushRoute.shared
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -128,6 +129,20 @@ struct MainTabView: View {
 
             FloatingTabBar(selection: $router.selectedTab)
         }
+        // A tapped funnel push on a native install. There is no web shell here
+        // to navigate, so the page is shown over the trainer rather than handed
+        // to Safari, where it would have none of the app's cookies and no
+        // `window.__native.device_id`.
+        .sheet(item: pushDestination) { destination in
+            PushWebSheet(url: destination.url) { route.consume() }
+        }
+    }
+
+    private var pushDestination: Binding<PushDestination?> {
+        Binding(
+            get: { route.pendingURL.map(PushDestination.init) },
+            set: { if $0 == nil { route.consume() } }
+        )
     }
 }
 

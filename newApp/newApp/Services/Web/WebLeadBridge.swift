@@ -2,13 +2,12 @@
 //  WebLeadBridge.swift
 //  Alpha Academy
 //
-//  Carries the lead id out of the web layer and into `LeadIdentity`, which is
-//  what the Pocket Alpha push funnel needs and has never had.
+//  Carries the lead id out of the web layer.
 //
-//  Contract: Pocket_Alpha_iOS_Push_API.md §6 — `user_id` is minted by the
-//  backend and the native shell reads it from `localStorage["tw-app-user-id"]`.
-//  The backend parses the path segment as an integer, so nothing else will do:
-//  the AppsFlyer UID is hyphenated and answers 422.
+//  Pushes no longer need it: the backend links device to lead by `device_id`,
+//  which `WebNativeBridge` hands to the page. What is left is attribution —
+//  AppsFlyer's customer user id, which ties the install to the lead and is
+//  otherwise never set on this platform.
 //
 
 import Foundation
@@ -126,12 +125,13 @@ final class WebLeadReceiver: NSObject, WKScriptMessageHandler {
         guard raw != WebModeStore.leadUserID else { return }
 
         WebModeStore.leadUserID = raw
-        // §4.5 — a changed lead invalidates anything fetched for the previous
-        // one, and this is also what hands the id to AppsFlyer.
-        LeadIdentity.reconcile()
+        // The only consumer left. The lead can register at any point in a
+        // session, so this may well be the first time AppsFlyer learns who it
+        // has been attributing all along.
+        AppsFlyerService.setCustomerUserID(raw)
 
         #if DEBUG
-        print("WEB lead: captured user_id \(raw)\(Int64(raw) == nil ? "  ← NOT an integer, polling stays off" : "")")
+        print("WEB lead: captured user_id \(raw)")
         #endif
     }
 }

@@ -187,51 +187,75 @@ enum DebugSelfCheck {
         check("nothing unlocks on an empty profile", unlockedOnEmpty.isEmpty,
               unlockedOnEmpty.map(\.id).joined(separator: ","))
 
-        // 11 — the Pocket Alpha push contract decodes.
+        // 11 — the device-registration contract.
         //
-        // Verbatim samples from §2 of Pocket_Alpha_iOS_Push_API.md. The one that
-        // matters is `action: null`: it is legal, and a non-optional field there
-        // would drop every actionless push on the floor at runtime.
-        let emptyJSON = #"{"has_push": false, "next_poll_after_sec": 900, "reason": "in_app"}"#
-        let empty = try? JSONDecoder().decode(
-            PendingPushResponse.self, from: Data(emptyJSON.utf8)
-        )
-        check("push: empty response decodes",
-              empty?.hasPush == false && empty?.nextPollAfterSec == 900,
-              "got \(String(describing: empty))")
+        // The hex encoding is the one assertion that earns its keep on its own:
+        // `String(describing:)` on the token `Data` yields "<a1b2c3d4 e5f6…>",
+        // the server discards it, and nothing anywhere reports an error. It is
+        // the named failure mode in the integration spec.
+        check("push: token hex is lowercase and unseparated",
+              DeviceRegistrar.hexString(Data([0x00, 0x0f, 0xff, 0xa5])) == "000fffa5",
+              DeviceRegistrar.hexString(Data([0x00, 0x0f, 0xff, 0xa5])))
 
-        let fullJSON = """
-        {"has_push": true, "next_poll_after_sec": 900, "push": {
-          "delivery_id": "fb1266a314944604b3f003803ba63b46", "post_id": 20,
-          "title": "T", "body": "B", "action": null, "lang": "en"}}
-        """
-        let full = try? JSONDecoder().decode(
-            PendingPushResponse.self, from: Data(fullJSON.utf8)
-        )
-        check("push: null action decodes",
-              full?.hasPush == true && full?.push?.action == nil
-                  && full?.push?.postID == 20,
-              "got \(String(describing: full))")
+        check("push: device_id accepts a UUID",
+              DeviceIdentity.isValid(UUID().uuidString.lowercased()))
+        check("push: device_id accepts the alphabet",
+              DeviceIdentity.isValid("a.b_c:d-e"))
+        check("push: device_id accepts the length bounds",
+              DeviceIdentity.isValid(String(repeating: "a", count: 8))
+                  && DeviceIdentity.isValid(String(repeating: "a", count: 128)))
+        check("push: device_id rejects out-of-bounds lengths",
+              !DeviceIdentity.isValid("")
+                  && !DeviceIdentity.isValid(String(repeating: "a", count: 7))
+                  && !DeviceIdentity.isValid(String(repeating: "a", count: 129)))
+        check("push: device_id rejects characters outside the alphabet",
+              !DeviceIdentity.isValid("has space") && !DeviceIdentity.isValid("has/slash"))
 
-        let actionJSON = """
-        {"has_push": true, "next_poll_after_sec": 60, "push": {
-          "delivery_id": "d1", "post_id": 1, "title": "T", "body": "B",
-          "action": {"text": "GO", "url": "https://example.com/x"}, "lang": "es"}}
-        """
-        let withAction = try? JSONDecoder().decode(
-            PendingPushResponse.self, from: Data(actionJSON.utf8)
-        )
-        check("push: action decodes",
-              withAction?.push?.action?.url == "https://example.com/x",
-              "got \(String(describing: withAction?.push?.action))")
+        check("push: apns_env resolves",
+              ["sandbox", "production"].contains(APNSEnvironment.current.rawValue),
+              APNSEnvironment.current.rawValue)
+        #if targetEnvironment(simulator)
+        check("push: simulator is sandbox", APNSEnvironment.current == .sandbox,
+              "source \(APNSEnvironment.source)")
+        #endif
 
-        // The throttle must move forward on every response, push or not (§2).
-        PushStore.clearThrottle()
-        check("push: no throttle means due", PushStore.isPollDue)
-        PushStore.noteResponse(nextPollAfterSec: 900)
-        check("push: throttle blocks the next poll", !PushStore.isPollDue,
-              "nextPollAllowedAt \(String(describing: PushStore.nextPollAllowedAt))")
-        PushStore.clearThrottle()
+        let fullRegistration = #"{"ok":true,"device_id":"x","linked":true,"has_apns_token":true}"#
+        let decodedFull = try? JSONDecoder().decode(
+            DeviceRegisterResponse.self, from: Data(fullRegistration.utf8)
+        )
+        check("push: registration response decodes",
+              decodedFull?.ok == true && decodedFull?.linked == true
+                  && decodedFull?.hasAPNsToken == true,
+              "got \(String(describing: decodedFull))")
+
+        // The optional fields are genuinely optional — a non-optional here
+        // would throw away a perfectly good 200.
+        let sparseRegistration = #"{"ok":true,"device_id":"x"}"#
+        let decodedSparse = try? JSONDecoder().decode(
+            DeviceRegisterResponse.self, from: Data(sparseRegistration.utf8)
+        )
+        check("push: sparse registration response decodes",
+              decodedSparse?.ok == true && decodedSparse?.linked == nil,
+              "got \(String(describing: decodedSparse))")
+
+        // 12 — the host policy. A miss here is what sends the app to Safari on
+        // its own address, or keeps the cashier inside.
+        check("web: the anchor host is ours",
+              WebHostPolicy.isFirstParty(URL(string: "https://signals.tradingwithtyler.com/x")))
+        check("web: a subdomain of the anchor is ours",
+              WebHostPolicy.isFirstParty(URL(string: "https://cdn.signals.tradingwithtyler.com/x")))
+        check("web: case and a trailing dot do not matter",
+              WebHostPolicy.isFirstParty(URL(string: "https://SIGNALS.TradingWithTyler.com./x")))
+        check("web: a prefix impostor is not ours",
+              !WebHostPolicy.isFirstParty(URL(string: "https://notsignals.tradingwithtyler.com/x")))
+        check("web: an unrelated host is not ours",
+              !WebHostPolicy.isFirstParty(URL(string: "https://pocketoption.com/cashier")))
+        check("web: the configured destination is always ours",
+              WebHostPolicy.isFirstParty(WebConfig.destinationURL))
+        // The migration hangs off this distinction: the full allowlist contains
+        // the saved address, so it can never judge the saved address.
+        check("web: the configured list excludes an unrelated learned host",
+              !WebHostPolicy.isConfiguredFirstParty(URL(string: "https://pocketoption.com/x")))
 
         if failures.isEmpty {
             print("SELF-CHECK RESULT: ALL PASSED")

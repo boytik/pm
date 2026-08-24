@@ -8,6 +8,7 @@
 
 import Foundation
 import UserNotifications
+import UIKit
 
 enum NotificationService {
 
@@ -27,9 +28,18 @@ enum NotificationService {
         await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
     }
 
+    /// `.badge` is requested even though the server does not set one today:
+    /// adding an option later needs a fresh prompt, and this app gets one.
     static func requestAuthorization() async -> Bool {
-        (try? await UNUserNotificationCenter.current()
-            .requestAuthorization(options: [.alert, .sound])) ?? false
+        let granted = (try? await UNUserNotificationCenter.current()
+            .requestAuthorization(options: [.alert, .sound, .badge])) ?? false
+        guard granted else { return false }
+        // Redundant on the happy path — the device registered at launch — but
+        // this is the recovery path for a launch where that failed: offline, or
+        // a keychain that was still locked when the delegate ran.
+        UIApplication.shared.registerForRemoteNotifications()
+        Task { await DeviceRegistrar.flushPendingToken() }
+        return true
     }
 
     /// Schedules seven one-off reminders rather than one repeating trigger,
