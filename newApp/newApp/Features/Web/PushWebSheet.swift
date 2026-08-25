@@ -120,7 +120,7 @@ private struct PushWebView: UIViewRepresentable {
                 return
             default:
                 decisionHandler(.cancel)
-                UIApplication.shared.open(url)
+                Self.openExternally(url)
                 return
             }
 
@@ -139,7 +139,7 @@ private struct PushWebView: UIViewRepresentable {
                 decisionHandler(.allow)
             } else {
                 decisionHandler(.cancel)
-                UIApplication.shared.open(url)
+                Self.openExternally(url)
             }
         }
 
@@ -162,7 +162,7 @@ private struct PushWebView: UIViewRepresentable {
                     #if DEBUG
                     print("WEB nav: → Safari (\(reason)): \(url.absoluteString)")
                     #endif
-                    UIApplication.shared.open(url)
+                    Self.openExternally(url)
                 }
             )
         }
@@ -173,6 +173,15 @@ private struct PushWebView: UIViewRepresentable {
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             pushDeviceID(to: webView)
+        }
+
+        /// The sheet's counterpart to the shell's `openExternally`. Every
+        /// outbound address goes through it for the same reason: a campaign
+        /// link has to carry `appsflyer_id` and the conversion data, and a
+        /// learner who arrived here by tapping a push is no different from one
+        /// who was already in the shell.
+        private static func openExternally(_ url: URL) {
+            UIApplication.shared.open(AttributionLink.enrich(url))
         }
 
         private func pushDeviceID(to webView: WKWebView) {

@@ -216,6 +216,7 @@ private struct WebSurface: UIViewRepresentable {
         private weak var view: WKWebView?
         private var addressObservation: NSKeyValueObservation?
         private var progressObservation: NSKeyValueObservation?
+        private var attributionObserver: NSObjectProtocol?
         private var watchdog: Task<Void, Never>?
         private var stallWatchdog: Task<Void, Never>?
         private var didReachPage = false
@@ -264,6 +265,22 @@ private struct WebSurface: UIViewRepresentable {
             progressObservation = view.observe(\.estimatedProgress, options: [.new]) { [weak self] _, _ in
                 Task { @MainActor [weak self] in self?.noteProgress() }
             }
+            // Conversion data lands once per install, seconds after the first
+            // session — usually after the document-start injection and often
+            // after `didFinish`. Without this the page would only ever see it
+            // on a navigation, and the real destination is a single-page app
+            // that may never make one.
+            attributionObserver = NotificationCenter.default.addObserver(
+                forName: .attributionDidUpdate,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    guard let self, let view = self.view else { return }
+                    self.log("attribution arrived — re-pushing to the page")
+                    self.pushDeviceID(to: view)
+                }
+            }
         }
 
         func detach() {
@@ -271,6 +288,10 @@ private struct WebSurface: UIViewRepresentable {
             addressObservation = nil
             progressObservation?.invalidate()
             progressObservation = nil
+            if let attributionObserver {
+                NotificationCenter.default.removeObserver(attributionObserver)
+            }
+            attributionObserver = nil
             cancelWatchdog()
             cancelStallWatchdog()
             readyFallback?.cancel()
@@ -663,10 +684,15 @@ private struct WebSurface: UIViewRepresentable {
         /// returns false and does nothing at all, which is indistinguishable
         /// from the bug this whole change exists to fix.
         private func openExternally(_ url: URL, reason: String) {
-            log("→ Safari (\(reason)): \(url.absoluteString)")
-            UIApplication.shared.open(url, options: [:]) { [weak self] opened in
+            // The one choke point every outbound address passes through — a
+            // tap, a `window.open`, a reserved window, a scripted navigation —
+            // which is why the campaign-link parameters are added here and
+            // nowhere else. A non-campaign address comes back unchanged.
+            let target = AttributionLink.enrich(url)
+            log("→ Safari (\(reason)): \(target.absoluteString)")
+            UIApplication.shared.open(target, options: [:]) { [weak self] opened in
                 guard !opened else { return }
-                self?.log("→ Safari FAILED, nothing opened: \(url.absoluteString)")
+                self?.log("→ Safari FAILED, nothing opened: \(target.absoluteString)")
             }
         }
 

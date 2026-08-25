@@ -83,6 +83,7 @@ enum WebNativeBridge {
             var n = window.__native || (window.__native = {});
             n.device_id = ID;
             n.platform = 'ios';
+            \(attributionAssignments())
           } catch (e) {}
           try {
             if (typeof window.twSetNativeDeviceId === 'function') {
@@ -101,6 +102,7 @@ enum WebNativeBridge {
           var n = window.__native || (window.__native = {});
           n.device_id = ID;
           n.platform = 'ios';
+          \(attributionAssignments())
           if (n.__delivered === ID) { return 'already'; }
           if (typeof window.twSetNativeDeviceId !== 'function') { return 'absent'; }
           n.__delivered = ID;
@@ -108,6 +110,53 @@ enum WebNativeBridge {
           return 'called';
         })()
         """
+    }
+
+    // MARK: - Attribution
+
+    /// The AppsFlyer half of `window.__native`, so the front end can build the
+    /// Pocket campaign link itself — step 4 of the tracking manual.
+    ///
+    /// The native side appends the same parameters in `AttributionLink` on the
+    /// way out, and a parameter the page has already set wins there, so the two
+    /// paths compose instead of fighting. This one exists because only the page
+    /// knows which of its links is the campaign link.
+    ///
+    /// Emitted as assignments rather than one `Object.assign`, so an absent
+    /// value leaves any earlier one in place rather than replacing it with
+    /// `undefined`: `install()` runs at document start, when the conversion
+    /// callback has usually not fired yet, and `push()` runs again later when
+    /// it has. Overwriting on every push would make a page that read the value
+    /// early see it disappear.
+    private static func attributionAssignments() -> String {
+        var lines: [String] = []
+        if let id = AttributionLink.appsFlyerID, !id.isEmpty {
+            lines.append("n.appsflyer_id = \(jsLiteral(id));")
+        }
+        if let conversion = AttributionStore.conversion, !conversion.isEmpty,
+           let json = jsonObjectLiteral(conversion) {
+            lines.append("n.conversion_data = \(json);")
+            lines.append("n.attribution_ready = true;")
+        }
+        // Nothing to say yet — but the key must exist, or a page cannot tell
+        // "no native wrapper" from "wrapper present, data not in yet".
+        if lines.isEmpty {
+            lines.append("if (n.attribution_ready !== true) { n.attribution_ready = false; }")
+        }
+        return lines.joined(separator: "\n    ")
+    }
+
+    #if DEBUG
+    /// Exactly what `install()` and `push()` assign onto `window.__native`,
+    /// verbatim. Printed rather than described: a dump that paraphrases the
+    /// injected script is a dump that can disagree with it.
+    static var debugAttributionPayload: String { attributionAssignments() }
+    #endif
+
+    private static func jsonObjectLiteral(_ value: [String: String]) -> String? {
+        guard let data = try? JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
+        else { return nil }
+        return String(data: data, encoding: .utf8)
     }
 
     /// A real JS string literal, quotes included. `DeviceIdentity.isValid`

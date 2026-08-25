@@ -21,6 +21,7 @@ struct newAppApp: App {
         #if DEBUG
         DeviceIdentity.applyQAOverrides()
         WebModeStore.applyQAOverrides()
+        AttributionStore.applyQAOverrides()
         APNSEnvironment.logState()
         #endif
         // The notification delegate has to be in place before launch finishes,
@@ -36,6 +37,12 @@ struct newAppApp: App {
         // `didFinishLaunchingWithOptions` — not by these two lines being
         // neighbours. Do not "tidy" this into the delegate.
         AppsFlyerService.configure()
+        #if DEBUG
+        // After `configure()`, never before: `appsflyer_id` is unreadable until
+        // the SDK has been initialised, and a dump that prints EMPTY because it
+        // ran a line too early is worse than no dump at all.
+        DebugAttributionDump.start()
+        #endif
     }
 
     var body: some Scene {

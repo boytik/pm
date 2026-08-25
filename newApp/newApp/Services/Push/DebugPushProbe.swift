@@ -35,6 +35,25 @@ enum DebugPushProbe {
         print("  linked     : \(DeviceRegistrationStore.lastLinked)")
         print("  has token  : \(DeviceRegistrationStore.lastHasAPNsToken)")
         print("  api base   : \(PushConfig.baseURL.absoluteString)")
+        print("PROBE ── attribution ─────────────────────────────")
+        print("  af configured: \(AnalyticsConfig.isConfigured)")
+        print("  appsflyer_id : \(AttributionLink.appsFlyerID ?? "EMPTY — SDK not up yet")")
+        if let conversion = AttributionStore.conversion {
+            let at = AttributionStore.receivedAt.map(String.init(describing:)) ?? "-"
+            print("  conversion   : \(conversion.count) keys, received \(at)")
+            for key in conversion.keys.sorted() {
+                print("      \(key) = \(conversion[key] ?? "")")
+            }
+        } else {
+            // Two very different states that both read as "no data": one is a
+            // launch after the first, where the callback simply never fires
+            // again, the other is a real failure.
+            print("  conversion   : none — \(AttributionStore.lastFailure ?? "callback has not fired on this install")")
+        }
+        print("  link hosts   : \(AttributionLink.hostSuffixes.joined(separator: ", "))")
+        if let sample = URL(string: "https://example.pocketpartners.link/registration") {
+            print("  sample link  : \(AttributionLink.enrich(sample, quiet: true).absoluteString)")
+        }
         print("PROBE ────────────────────────────────────────────")
 
         guard ProcessInfo.processInfo.environment["AA_PUSH_PROBE"] == "2" else { return }

@@ -61,9 +61,9 @@ launch
 Layout: `Services/Push/` (`DeviceIdentity`, `APNSEnvironment`, `PushConfig`,
 `DeviceRegistrar`, `DeviceRegistrationStore`, `PushClickReporter`, `PushRoute`,
 `PushNotificationDelegate`, `LegacyFunnelCleanup`, `DebugPushProbe`),
-`Services/Security/Keychain.swift`, `AppDelegate.swift`, and
-`Services/Analytics/` (`AppsFlyerService`, `TrackingAuthorization`,
-`AnalyticsConfig`).
+`Services/Security/Keychain.swift`, and `AppDelegate.swift`. `Services/Analytics/`
+belongs to attribution, not to this — see the section below; the only thing push
+takes from it is `appsflyer_id`, in the `/device/register` body.
 
 - API host is `https://signals.tradingwithtyler.com` (`PushConfig`), **not**
   `WebConfig.destination` — that is a keitaro cloaking address for a *page*.
@@ -95,9 +95,12 @@ Layout: `Services/Push/` (`DeviceIdentity`, `APNSEnvironment`, `PushConfig`,
 - Notification permission is still requested at the end of onboarding regardless
   of the "Daily reminder" toggle: the toggle governs the drills, but an APNs
   alert cannot be displayed without permission either.
-- There is **no** `UIBackgroundModes` and no `BGTaskScheduler`. `remote-notification`
-  is deliberately absent — the server sends alert pushes, not silent ones, and
-  declaring an unused background mode invites review questions.
+- `UIBackgroundModes` is `remote-notification`, and there is no `BGTaskScheduler`.
+  The mode only earns its keep for a push carrying `content-available: 1`: an
+  ordinary alert push is displayed by the system with or without it. Keep it —
+  it is what lets the server wake the app silently — but if App Review ever
+  queries an unused background mode, the answer is the silent-push path, not
+  background fetch, which was deleted with the old pull funnel.
 
 QA overrides:
 
@@ -132,6 +135,142 @@ storing the id under `localStorage["tw-native-device-id"]`.
 3. **`PrivacyInfo.xcprivacy` is missing** and blocks submission: the app uses
    `UserDefaults` (required reason CA92.1), now also the Keychain, and AppsFlyer
    needs `NSPrivacyTracking` plus tracking domains. Tracked as separate work.
+
+## Attribution — AppsFlyer → Pocket Option
+
+The contract is the client's *Tracking Integration Manual for Partners*
+(25.08.2026). It is a separate concern from the push funnel above and shares
+nothing with it but the SDK: pushes join native and web by `device_id`,
+attribution joins **this app's install** to the **Pocket registration** by
+`appsflyer_id`.
+
+```
+install → SDK mints appsflyer_id
+        → onConversionDataSuccess lands ONCE, seconds later, first launch only
+        → learner taps "Deposit"
+        → the campaign link opens carrying appsflyer_id + conversion data
+        → registration, and every deposit after it, is credited to this app
+```
+
+Layout: `Services/Analytics/` — `AnalyticsConfig`, `AppsFlyerService`,
+`AppsFlyerAttribution` (the `AppsFlyerLibDelegate`), `AttributionStore`,
+`AttributionLink`, `TrackingAuthorization`.
+
+- **The conversion payload is persisted.** `onConversionDataSuccess` fires once
+  per install, a second or two after the first session, and never again. The
+  learner who deposits on day three is exactly the one this exists for, so
+  `AttributionStore` keeps it in `UserDefaults`. Not the Keychain: a reinstall
+  is a *new* install with its own attribution, and carrying the old one across
+  would be worse than losing it.
+- **`AppsFlyerLib.delegate` is `weak`.** `AppsFlyerAttribution.shared` is a
+  `static let` for that reason — a delegate built at the call site is
+  deallocated before the one callback it exists for can fire, silently. It is
+  assigned *before* `initialize`, as the manual requires.
+- **Only a whitelist is forwarded** (`AppsFlyerAttribution.forwardedKeys`).
+  Conversion data carries the campaign's cost fields (`af_cpi`, `orig_cost`,
+  `af_cost_value`) — media-buying economics that must not end up in a URL the
+  learner can read in Safari's address bar — and SDK diagnostics (`iscache`,
+  `af_r`, `http_referrer`) that mean nothing downstream.
+- **The link is enriched in `openExternally`, and nowhere else.** That is the
+  one choke point every outbound address already passes through: a tap, a
+  `window.open`, a reserved window, a scripted navigation. `PushWebSheet` has
+  its own copy of that method for the same reason. Adding a second site is how
+  the two drift apart.
+- **A campaign link is recognised by host suffix**, matched on a label boundary
+  so `pocketpartners.link` covers `x.pocketpartners.link` but never
+  `notpocketpartners.link`. Anything else is opened untouched.
+- Two deliberate departures from the manual. It says not to open the link at
+  all when the data is unavailable — **we open it unenriched and log**, because
+  a learner tapping "Deposit" and seeing nothing happen is the exact symptom
+  `WebWindowPolicy` exists to remove, and a lost attribution is the smaller
+  failure. And **a parameter the page already put on the link wins**, so if the
+  front end starts building the link itself this becomes a no-op instead of a
+  fight.
+- Values are percent-encoded by hand into `percentEncodedQueryItems`.
+  `URLComponents.queryItems` leaves `+` alone, and `af_click_id` and the
+  `af_sub*` fields are opaque strings that may contain one — which every server
+  reads back as a space.
+- The page also gets the data, on `window.__native.{appsflyer_id,
+  conversion_data, attribution_ready}`, so the front end can build the link
+  itself. Emitted as individual assignments, never one `Object.assign`: the
+  document-start injection usually runs before the conversion callback has
+  fired, and overwriting on the later push would make a page that read the
+  value early watch it turn into `undefined`. When the payload lands mid-session
+  `WebShellView` re-pushes it on `.attributionDidUpdate` — a single-page app may
+  never navigate again.
+- Enrichment only reaches links judged **third-party**. If a campaign host ever
+  became first-party (it would have to appear inside a shell load's redirect
+  chain) the link would open inside the shell, unenriched.
+
+### The console dump
+
+`DebugAttributionDump` prints the whole integration as one `AF ══ …` block on
+**every DEBUG launch**, no environment variable to remember:
+
+```
+xcrun simctl launch --console-pty booted com.rainerhansen.globoton
+```
+
+It fires at four moments, and the four are the point — the interesting failures
+live in the gaps between them, not in any single snapshot:
+
+| `── launch` | before ATT, before conversion data |
+| `── ATT answered` | the IDFA either appeared or came back all zeroes |
+| `── conversion data arrived` | the one callback per install |
+| `── lead id captured` | `customerUserID`, which cannot exist at launch |
+
+What each block holds: SDK version (`CFBundleVersion` — AppsFlyer ships a
+hardcoded `1.0` in `CFBundleShortVersionString`, so reading the obvious key
+gives a wrong answer that looks healthy), whether the SDK actually started, the
+redacted dev key, ATT status, IDFA, `appsflyer_id`, `customerUserID`,
+`device_id`, the forwarded conversion keys, the **raw** payload with `→`/`·`
+marking what survived the whitelist, the recognised campaign hosts, a **sample
+enriched link**, and the literal JS assigned onto `window.__native`.
+
+An all-zero IDFA next to `af_status = Organic` is the single most common way a
+bought install reports as unattributed, which is why they are printed adjacent.
+
+Every outbound address is traced by `AttributionLink`, including the ones it
+does **not** touch — `outbound <host> is not a campaign host (known: …)`. Until
+the PM issues the real campaign link that line is how its host gets discovered:
+tap "Deposit" and read what went out unrecognised.
+
+QA overrides:
+
+```
+SIMCTL_CHILD_AA_PUSH_PROBE=1        the push probe carries an attribution section too
+SIMCTL_CHILD_AA_ATTRIBUTION_RESET=1 forget the conversion payload        (DEBUG)
+SIMCTL_CHILD_AA_AF_LINK_HOSTS=a.link,b.com  extra campaign hosts (release too)
+```
+
+Verified on the simulator 25.08.2026: the delegate fired, the payload persisted
+across launches, all four blocks printed, and the sample link came out encoded
+(`install_time` carries a space, which arrives as `%20`).
+
+### Still needed from the PM
+
+1. **The iOS Campaign ID**, and with it the real campaign-link host. `Links →
+   Create New Campaign → Registration`, named for the platform. Until it is
+   known `AttributionLink.anchorHostSuffixes` holds only the manual's example
+   domain — one line to change, or an `AA_AF_LINK_HOSTS` on the launch.
+
+   **This is not a formality, and it is the one thing standing between the code
+   and a working integration.** Verified on the real funnel (24.08.2026,
+   commit `540c0b5`): Deposit opens **`go1.urlpress.co`**, not
+   `pocketoption.com` and not a `pocketpartners.link` — and that host
+   *rotates*. So as things stand the enrichment recognises nothing on the live
+   funnel and every Deposit tap goes out untouched. The `outbound … is not a
+   campaign host` trace is there to prove it either way.
+
+   What is *not* yet known is whether appending the parameters to the cloaker
+   hop even survives the redirect to the campaign link. If it does not, the
+   parameters have to be put on by the page — which is what
+   `window.__native.{appsflyer_id, conversion_data}` already exists for, and
+   why both paths were built.
+2. **The SKAdNetwork ID list.** `Info.plist` has no `SKAdNetworkItems` at all.
+   The list is advertiser-specific and comes from AppsFlyer, so it is not
+   something to invent — but the manual's own diagnostics checklist asks for it,
+   and it should be in before the store build.
 
 ## Web mode
 
@@ -292,9 +431,10 @@ WebKit caches them, so only the very first launch is slow.
 
 The shell also requests notification permission once, on the first successful
 load, flagged by `didAskPush`. `onPageReady` normally fires on `didFinish`, with
-a 12-second fallback from commit for the same reason. Native onboarding is where the app normally asks
-and it never runs in web mode, so without this `PushInbox` refuses to poll and
-the declared `UIBackgroundModes: fetch` is inert for those installs.
+a 12-second fallback from commit for the same reason. Native onboarding is where
+the app normally asks and it never runs in web mode, so without this an APNs
+alert would arrive at an install that is registered, addressable, and not
+allowed to show anything.
 
 DEBUG console, all prefixed so `--console-pty` output stays greppable — and all
 compiled out of release, since a funnel response body is not something to leave
@@ -318,7 +458,14 @@ in a shipping log:
 - `WEB lead:` — the localStorage key list on every load, and the captured id.
 - `WEB bridge:` — whether `window.twSetNativeDeviceId` took the device id:
   `called`, `already`, or `absent` (a page that never defines the hook — which
-  includes `linktest.html`, so `absent` there is a pass, not a failure).
+  includes `linktest.html`, so `absent` there is a pass, not a failure). Any of
+  the three also means the injected script parsed and ran, attribution
+  assignments included; a broken one would come back `error:` or `threw:`.
+- `AF ══` — the attribution dump, four times a launch. See "The console dump"
+  under Attribution.
+- `ATTRIBUTION link:` — every outbound address: what was appended to a campaign
+  link (with `before:`/`after:`), why nothing was, or that the host is not a
+  recognised campaign host at all.
 
 And the push side, on the same principle:
 
@@ -359,8 +506,11 @@ install to native.
 
 ### Not done yet
 
-- AppsFlyer attribution params in the URL (`sub1`/`sub2`/conversion data). Would
-  need an `AppsFlyerLibDelegate`, which does not exist in this project.
+- `SKAdNetworkItems` in Info.plist, and the real campaign-link host — both are
+  data the PM has to supply. See "Still needed from the PM" under Attribution.
+- The enriched link has only been seen against the manual's example host on the
+  simulator. Nothing has yet been through a real Pocket registration, so
+  "appears in AppsFlyer" is unverified end to end.
 - The four buttons on `linktest.html` have not been tapped one by one, though
   the real thing has: on 24.08.2026 the funnel's own Deposit button bounced to
   Safari and the backend answered `linked=true`, which is the whole chain.

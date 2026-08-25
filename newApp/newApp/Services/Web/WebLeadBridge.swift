@@ -132,6 +132,10 @@ final class WebLeadReceiver: NSObject, WKScriptMessageHandler {
 
         #if DEBUG
         print("WEB lead: captured user_id \(raw)")
+        // The one field the launch dump has to leave blank — the lead does not
+        // exist yet when the app starts. Re-printed here so the console ends up
+        // holding one complete picture rather than two half ones.
+        DebugAttributionDump.emit(reason: "lead id captured")
         #endif
     }
 }
