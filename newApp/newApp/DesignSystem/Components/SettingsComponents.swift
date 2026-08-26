@@ -1,17 +1,5 @@
-//
-//  SettingsComponents.swift
-//  Alpha Academy
-//
-//  A settings screen built from the design system rather than from `Form`.
-//  The stock inset-grouped list carries its own greys, separators and corner
-//  radii, none of which match this palette, and `.scrollContentBackground`
-//  only hides the backdrop — the rows still look like a different app.
-//
-
 import SwiftUI
 
-/// A group of rows under a tracked micro-label, drawn as one card with
-/// hairline separators between rows.
 struct SettingsGroup<Content: View>: View {
     let title: String
     var footer: String?
@@ -37,8 +25,6 @@ struct SettingsGroup<Content: View>: View {
     }
 }
 
-/// Hairline between rows, inset past the leading icon so the rows read as a
-/// list rather than as stacked boxes.
 struct RowDivider: View {
     var inset: CGFloat = Theme.Space.l
 
@@ -50,7 +36,6 @@ struct RowDivider: View {
     }
 }
 
-/// Label, optional value, optional chevron. The workhorse row.
 struct SettingsRow<Trailing: View>: View {
     let title: String
     var subtitle: String?
@@ -125,7 +110,6 @@ extension SettingsRow where Trailing == EmptyView {
     }
 }
 
-/// A value shown at the trailing edge of a row.
 struct RowValue: View {
     let text: String
     var isMono = false
@@ -144,8 +128,6 @@ struct RowValue: View {
     }
 }
 
-/// A toggle row. The stock `Toggle` label styling fights the palette, so the
-/// label is drawn by `SettingsRow` and only the switch comes from the system.
 struct SettingsToggleRow: View {
     let title: String
     var subtitle: String?
@@ -165,8 +147,6 @@ struct SettingsToggleRow: View {
     }
 }
 
-/// Segmented choice drawn as pills, so the selected state uses the accent
-/// rather than the system's grey capsule.
 struct SettingsSegmentedRow<T: Hashable>: View {
     let title: String
     var systemImage: String?

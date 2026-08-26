@@ -1,0 +1,166 @@
+# Alpha Academy — Codemagic
+#
+# Two workflows:
+#   ios-check       every push and pull request — builds for the simulator and runs
+#                   the DEBUG self-check that exercises the whole data pipeline.
+#   ios-testflight  a v* tag or a manual run — archives, signs and ships to TestFlight.
+#
+# One thing has to exist in the Codemagic UI before either can run:
+# Teams → Integrations → **App Store Connect**, a key named exactly `alpha-academy-asc`,
+# holding the issuer id, the key id and the matching AuthKey_*.p8. The first two are in
+# `alpha.md`; the .p8 itself is not in this repository and must not be.
+# Nothing else needs configuring: signing certificates and the provisioning profile are
+# fetched with that key on every build. The APNs auth key in that same file is a
+# *server* credential and has no business here.
+
+definitions:
+  env_ios: &env_ios
+    xcode: latest
+    vars:
+      XCODE_PROJECT: "newApp/newApp.xcodeproj"
+      XCODE_SCHEME: "newApp"
+      BUNDLE_ID: "com.jorgspan.alphaacademy"
+      APP_STORE_APPLE_ID: 6802423819
+
+  cache_spm: &cache_spm
+    cache_paths:
+      - $HOME/Library/Caches/org.swift.swiftpm
+      - $HOME/Library/org.swift.swiftpm
+
+workflows:
+
+  # ── Verification ────────────────────────────────────────────────────────────
+  ios-check:
+    name: Alpha Academy — check
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      <<: *env_ios
+    cache:
+      <<: *cache_spm
+    triggering:
+      events:
+        - push
+        - pull_request
+      cancel_previous_builds: true
+    scripts:
+      - name: Show the toolchain
+        script: |
+          xcodebuild -version
+          xcodebuild -list -project "$XCODE_PROJECT"
+
+      - name: Build for the simulator
+        script: |
+          xcodebuild \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$CM_BUILD_DIR/build" \
+            CODE_SIGNING_ALLOWED=NO \
+            build | xcpretty
+
+      # The project's own acceptance test: spaced repetition, the commit funnel,
+      # streaks, achievements, persistence, callsign derivation and font
+      # registration, all asserted at launch. It prints PASS/FAIL and keeps
+      # running, so the exit code proves nothing — the log does.
+      - name: Run the DEBUG self-check on a simulator
+        script: |
+          set -e
+          APP="$CM_BUILD_DIR/build/Build/Products/Debug-iphonesimulator/newApp.app"
+          test -d "$APP" || { echo "no app at $APP"; exit 1; }
+
+          UDID=$(xcrun simctl list devices available | awk -F'[()]' '/iPhone/ {print $2; exit}')
+          test -n "$UDID" || { echo "no iPhone simulator available on this machine"; exit 1; }
+          echo "simulator $UDID"
+
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" "$APP"
+
+          # The app never exits, so the launch is backgrounded and cut off.
+          SIMCTL_CHILD_AA_SELF_CHECK=1 \
+            xcrun simctl launch --console-pty "$UDID" "$BUNDLE_ID" > self-check.log 2>&1 &
+          LAUNCH_PID=$!
+          sleep 40
+          kill "$LAUNCH_PID" 2>/dev/null || true
+
+          echo "──────── self-check ────────"
+          cat self-check.log
+
+          # A log with no PASS line means the check never ran — that is a failure too,
+          # and a silent one if we only grepped for FAIL.
+          grep -q '^PASS ' self-check.log || { echo "self-check produced no results"; exit 1; }
+          ! grep -q '^FAIL ' self-check.log || { echo "self-check reported failures"; exit 1; }
+          echo "self-check clean: $(grep -c '^PASS ' self-check.log) assertions"
+    artifacts:
+      - self-check.log
+      - /tmp/xcodebuild_logs/*.log
+
+  # ── Release ─────────────────────────────────────────────────────────────────
+  ios-testflight:
+    name: Alpha Academy — TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: alpha-academy-asc
+    environment:
+      <<: *env_ios
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.jorgspan.alphaacademy
+    cache:
+      <<: *cache_spm
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: "v*"
+          include: true
+      cancel_previous_builds: false
+    scripts:
+      - name: Set up code signing
+        script: xcode-project use-profiles
+
+      # CFBundleVersion is generated from CURRENT_PROJECT_VERSION
+      # (GENERATE_INFOPLIST_FILE is YES), so the number is passed to the archive
+      # rather than written into the project. Nothing is committed back.
+      - name: Pick the next build number
+        script: |
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || true)
+          case "$LATEST" in ''|*[!0-9]*) LATEST=0 ;; esac
+          echo "latest on TestFlight: $LATEST"
+          echo "BUILD_NUMBER=$((LATEST + 1))" >> $CM_ENV
+
+      - name: Archive and export the ipa
+        script: |
+          echo "building $CM_TAG as build $BUILD_NUMBER"
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME" \
+            --archive-xcargs "COMPILER_INDEX_STORE_ENABLE=NO CURRENT_PROJECT_VERSION=$BUILD_NUMBER"
+
+      # apns_env is read at runtime from the built binary's embedded.mobileprovision.
+      # Get it wrong and every push fails with BadDeviceToken while the app shows
+      # nothing at all — so the archive's entitlement is printed here, on the record.
+      - name: Report the APNs environment of what was just built
+        script: |
+          PROFILE=$(find "$CM_BUILD_DIR/build/ios/xcarchive" -name embedded.mobileprovision | head -1)
+          test -n "$PROFILE" || { echo "no embedded.mobileprovision in the archive"; exit 1; }
+          security cms -D -i "$PROFILE" > /tmp/profile.plist
+          echo "aps-environment: $(/usr/libexec/PlistBuddy -c 'Print :Entitlements:aps-environment' /tmp/profile.plist 2>/dev/null || echo '(absent — pushes will not work)')"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - build/ios/xcarchive/*.dSYM
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+      # email:
+      #   recipients:
+      #     - you@example.com
+      #   notify:
+      #     success: true
+      #     failure: true

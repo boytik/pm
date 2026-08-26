@@ -1,8 +1,3 @@
-//
-//  RootView.swift
-//  Alpha Academy
-//
-
 import SwiftUI
 
 struct RootView: View {
@@ -33,17 +28,13 @@ struct RootView: View {
         .environmentObject(store)
         .environmentObject(router)
         .tint(Theme.blue)
-        // The native screens are dark by design. The remote page is not ours:
-        // forcing the scheme there both leaks `prefers-color-scheme: dark` into
-        // a funnel that may only be styled light, and paints the status bar
-        // white over it — unreadable, now that the shell ignores the safe area.
+
         .preferredColorScheme(isWebPhase ? nil : .dark)
         .task {
             #if DEBUG
             if DebugSelfCheck.isRequested { DebugSelfCheck.run(on: store) }
             if DebugPushProbe.isRequested { await DebugPushProbe.run() }
-            // Lets QA inspect the exported record without tapping through:
-            //   SIMCTL_CHILD_AA_EXPORT_PDF=1 xcrun simctl launch --console-pty …
+
             if ProcessInfo.processInfo.environment["AA_EXPORT_PDF"] == "1" {
                 do {
                     let url = try ReportExporter.exportPDF(
@@ -56,9 +47,6 @@ struct RootView: View {
             }
             #endif
 
-            // Settled on an earlier launch — `AppRouter.init` already put us in
-            // `.web`, and none of the sequencing below applies. The DEBUG hooks
-            // stay above this return so `AA_SELF_CHECK` still reports.
             if case .web(let url) = router.phase {
                 #if DEBUG
                 print("WEB route: WEB (decided earlier) → \(url.absoluteString)")
@@ -66,23 +54,10 @@ struct RootView: View {
                 return
             }
 
-            // Hold the splash briefly so it does not flash and vanish.
             try? await Task.sleep(nanoseconds: 900_000_000)
 
-            // Asked here rather than at launch: the app is reliably `.active` by
-            // now, so the system alert actually appears. Keeping it on the splash
-            // also keeps it clear of the notification prompt at the end of
-            // onboarding — two stacked system alerts read as a shakedown.
             await TrackingAuthorization.requestIfNeeded()
 
-            // Ordering here is structural, not a race to win: the call above
-            // does not return until the learner has answered the system alert,
-            // and the gate is the next statement in the same task.
-            //
-            // The status check covers the one case where no alert appeared —
-            // a launch that never became `.active`, so `requestIfNeeded` gave
-            // up. The decision is once per install; do not spend it on a launch
-            // the learner never saw.
             if WebModeStore.decision == nil, TrackingAuthorization.isResolved {
                 switch await WebGate.decide() {
                 case .web(let url, let pathID):
@@ -106,9 +81,6 @@ struct RootView: View {
     }
 }
 
-/// Custom bar rather than SwiftUI's `TabView` chrome: the reference's floating
-/// pill with a glowing centre item cannot be expressed through
-/// `UITabBarAppearance`, and the system bar would fight the dark field.
 struct MainTabView: View {
     @EnvironmentObject private var router: AppRouter
     @ObservedObject private var route = PushRoute.shared
@@ -129,10 +101,7 @@ struct MainTabView: View {
 
             FloatingTabBar(selection: $router.selectedTab)
         }
-        // A tapped funnel push on a native install. There is no web shell here
-        // to navigate, so the page is shown over the trainer rather than handed
-        // to Safari, where it would have none of the app's cookies and no
-        // `window.__native.device_id`.
+
         .sheet(item: pushDestination) { destination in
             PushWebSheet(url: destination.url) { route.consume() }
         }
@@ -178,7 +147,6 @@ struct FloatingTabBar: View {
             Haptics.shared.select()
         } label: {
             ZStack {
-                // The glow marks the primary action. Nowhere else in the app.
                 if isCentre {
                     Circle()
                         .fill(

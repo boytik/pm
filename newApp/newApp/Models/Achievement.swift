@@ -1,8 +1,3 @@
-//
-//  Achievement.swift
-//  Alpha Academy
-//
-
 import Foundation
 
 enum AchievementCategory: String, CaseIterable, Identifiable, Hashable {
@@ -29,12 +24,6 @@ enum AchievementCategory: String, CaseIterable, Identifiable, Hashable {
     }
 }
 
-/// Everything an achievement condition might need, flattened and
-/// precomputed so no condition ever walks the answer history.
-///
-/// Cumulative fields come from `LifetimeCounters`, never from `state.answers`
-/// — that array is capped, so a "1 000 correct answers" badge fed from it
-/// would silently become unreachable.
 struct StatsSnapshot {
     var totalAnswers = 0
     var totalCorrect = 0
@@ -60,7 +49,6 @@ struct StatsSnapshot {
     var accuracyByMode: [TrainingMode: Double] = [:]
     var scenarioCompletions: [ScenarioCategory: Int] = [:]
 
-    /// The session that just finished, for session-scoped conditions.
     var lastSession: SessionResult?
 
     var overallAccuracy: Double {
@@ -78,9 +66,6 @@ struct StatsSnapshot {
     }
 }
 
-/// A definition returns `current` and `target` rather than a Bool, so the
-/// same declaration drives both the unlock check and the "7 / 30" progress
-/// bar on locked badges. No duplicated logic.
 struct Achievement: Identifiable {
     let id: String
     let title: String

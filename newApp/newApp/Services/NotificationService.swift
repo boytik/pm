@@ -1,17 +1,8 @@
-//
-//  NotificationService.swift
-//  Alpha Academy
-//
-//  Local notifications only. There is no Info.plist key for notification
-//  permission — it is purely a runtime request.
-//
-
 import Foundation
 import UserNotifications
 import UIKit
 
 enum NotificationService {
-
     private static let bodies: [String] = [
         "Three minutes keeps the chart fresh. Ready?",
         "A few weak letters are due for review.",
@@ -20,32 +11,22 @@ enum NotificationService {
         "Your weakest letters are waiting."
     ]
 
-    /// Identifiers this service owns. Removal is scoped to them so it cannot
-    /// wipe the funnel's `push.*` notifications, which live in the same centre.
     private static var drillIdentifiers: [String] { (0..<7).map { "drill.\($0)" } }
 
     static func currentStatus() async -> UNAuthorizationStatus {
         await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
     }
 
-    /// `.badge` is requested even though the server does not set one today:
-    /// adding an option later needs a fresh prompt, and this app gets one.
     static func requestAuthorization() async -> Bool {
         let granted = (try? await UNUserNotificationCenter.current()
             .requestAuthorization(options: [.alert, .sound, .badge])) ?? false
         guard granted else { return false }
-        // Redundant on the happy path — the device registered at launch — but
-        // this is the recovery path for a launch where that failed: offline, or
-        // a keychain that was still locked when the delegate ran.
+
         UIApplication.shared.registerForRemoteNotifications()
         Task { await DeviceRegistrar.flushPendingToken() }
         return true
     }
 
-    /// Schedules seven one-off reminders rather than one repeating trigger,
-    /// so a day already practised can simply be skipped. Seven pending
-    /// requests is far under the 64-request limit, and rescheduling on every
-    /// launch makes the whole thing self-healing.
     static func reschedule(profile: UserProfile, now: Date = Date()) {
         let center = UNUserNotificationCenter.current()
         center.removePendingNotificationRequests(withIdentifiers: drillIdentifiers)
@@ -66,7 +47,6 @@ enum NotificationService {
             components.hour = time.hour
             components.minute = time.minute
 
-            // Skip a slot that has already passed today.
             if offset == 0, let fire = calendar.date(from: components), fire <= now { continue }
 
             let content = UNMutableNotificationContent()
@@ -85,7 +65,6 @@ enum NotificationService {
         }
     }
 
-    /// Cancels the daily drills only — see `drillIdentifiers`.
     static func cancelAll() {
         UNUserNotificationCenter.current()
             .removePendingNotificationRequests(withIdentifiers: drillIdentifiers)

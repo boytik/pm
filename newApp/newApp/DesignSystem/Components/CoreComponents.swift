@@ -1,16 +1,6 @@
-//
-//  CoreComponents.swift
-//  Alpha Academy
-//
-//  Shared building blocks. Depth is tone, never shadow.
-//
-
 import SwiftUI
 import UIKit
 
-// MARK: - Section header
-
-/// Tracked caps plus a rule that runs to the trailing edge.
 struct SectionHeader: View {
     let title: String
     var trailingText: String?
@@ -31,8 +21,6 @@ struct SectionHeader: View {
     }
 }
 
-// MARK: - Buttons
-
 struct PressableButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -42,9 +30,6 @@ struct PressableButtonStyle: ButtonStyle {
     }
 }
 
-/// The hot action. Flat fill, no gradient, no glow.
-/// **Exactly one per screen** — a second one means the screen has two primary
-/// actions and the information architecture is wrong.
 struct PrimaryButton: View {
     let title: String
     var systemImage: String?
@@ -69,7 +54,6 @@ struct PrimaryButton: View {
     }
 }
 
-/// Everything interactive that is not the hot action.
 struct SecondaryButton: View {
     let title: String
     var systemImage: String?
@@ -92,8 +76,6 @@ struct SecondaryButton: View {
     }
 }
 
-// MARK: - Chips
-
 struct Chip: View {
     let text: String
     var systemImage: String?
@@ -114,10 +96,6 @@ struct Chip: View {
     }
 }
 
-// MARK: - Meters
-
-/// Continuous or ticked. The ticked variant reads as a scale rather than a
-/// loading bar, which is what mastery needs.
 struct LinearMeter: View {
     let fraction: Double
     var height: CGFloat = 4
@@ -150,8 +128,6 @@ struct LinearMeter: View {
     }
 }
 
-/// Butt line caps, not round: a dial reads as an instrument, a rounded ring
-/// reads as a consumer spinner.
 struct ProgressRing: View {
     let fraction: Double
     var lineWidth: CGFloat = 6
@@ -173,8 +149,6 @@ struct ProgressRing: View {
         .frame(width: diameter, height: diameter)
     }
 }
-
-// MARK: - Stat tile
 
 struct StatTile: View {
     let value: String
@@ -212,7 +186,6 @@ struct StatTile: View {
     }
 }
 
-/// A label/value pair inside a card. Micro-label always above the value.
 struct StatCell: View {
     let label: String
     let value: String
@@ -228,8 +201,6 @@ struct StatCell: View {
         }
     }
 }
-
-// MARK: - Empty state (iOS 16 has no ContentUnavailableView)
 
 struct EmptyStateView: View {
     let symbolName: String
@@ -253,10 +224,6 @@ struct EmptyStateView: View {
     }
 }
 
-// MARK: - Rank insignia
-
-/// Rank is geometry, never colour. Coloured tiers are the most game-like
-/// thing this app could do.
 struct RankInsigniaView: View {
     let rank: RankTier
     var size: CGFloat = 18
@@ -283,10 +250,6 @@ struct RankInsigniaView: View {
     }
 }
 
-// MARK: - Haptics
-
-/// Generators are stored, not built at fire time: constructing one per tap
-/// costs ~50 ms of Taptic warm-up and the first tap feels dead.
 final class Haptics {
     static let shared = Haptics()
 
@@ -304,7 +267,7 @@ final class Haptics {
 
     func correct() { impact.impactOccurred(); impact.prepare() }
     func wrong() { notification.notificationOccurred(.error); notification.prepare() }
-    /// The only .success in the app, which is what makes it mean something.
+
     func sessionComplete() { notification.notificationOccurred(.success); notification.prepare() }
     func select() { selection.selectionChanged(); selection.prepare() }
 }

@@ -1,21 +1,3 @@
-//
-//  PushWebSheet.swift
-//  Alpha Academy
-//
-//  Where a tapped funnel push lands on a native-mode install.
-//
-//  Native mode has no web shell, so there is nothing to navigate. Handing the
-//  URL to Safari would work and is worse: the page would arrive with none of
-//  the app's cookies, no `window.__native.device_id`, and no way to report the
-//  click against a session it has never established. `SFSafariViewController`
-//  has the same cookie problem and cannot be injected into at all.
-//
-//  So the sheet hosts a plain WKWebView with the same persistent data store
-//  and the same native bridge the shell uses — deliberately without the shell's
-//  watchdogs and, above all, without its address bookkeeping: nothing here may
-//  ever write `WebModeStore.destination`.
-//
-
 import SwiftUI
 import WebKit
 
@@ -62,11 +44,9 @@ private struct PushWebView: UIViewRepresentable {
         let config = WKWebViewConfiguration()
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
-        // The same store the shell would use, so a session established here is
-        // not thrown away.
+
         config.websiteDataStore = .default()
-        // Same reason as the shell: without it an async `window.open` is
-        // discarded by the popup blocker before the delegate is asked.
+
         config.preferences.javaScriptCanOpenWindowsAutomatically = true
         if let deviceID = DeviceIdentity.current() {
             WebNativeBridge.install(on: config.userContentController, deviceID: deviceID)
@@ -94,12 +74,8 @@ private struct PushWebView: UIViewRepresentable {
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
-
         var lastRequested: URL?
 
-        /// Same rule as the shell: ours stays inside, everything else is the
-        /// system's. Without it the cashier opens inside a sheet with no
-        /// address bar, which is the problem this whole change is about.
         func webView(
             _ webView: WKWebView,
             decidePolicyFor navigationAction: WKNavigationAction,
@@ -120,12 +96,10 @@ private struct PushWebView: UIViewRepresentable {
                 return
             default:
                 decisionHandler(.cancel)
-                UIApplication.shared.open(url)
+                Self.openExternally(url)
                 return
             }
 
-            // Sub-frames and requested windows are decided elsewhere, exactly
-            // as in the shell.
             if let target = navigationAction.targetFrame, !target.isMainFrame {
                 decisionHandler(.allow)
                 return
@@ -139,7 +113,7 @@ private struct PushWebView: UIViewRepresentable {
                 decisionHandler(.allow)
             } else {
                 decisionHandler(.cancel)
-                UIApplication.shared.open(url)
+                Self.openExternally(url)
             }
         }
 
@@ -162,7 +136,7 @@ private struct PushWebView: UIViewRepresentable {
                     #if DEBUG
                     print("WEB nav: → Safari (\(reason)): \(url.absoluteString)")
                     #endif
-                    UIApplication.shared.open(url)
+                    Self.openExternally(url)
                 }
             )
         }
@@ -173,6 +147,10 @@ private struct PushWebView: UIViewRepresentable {
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             pushDeviceID(to: webView)
+        }
+
+        private static func openExternally(_ url: URL) {
+            UIApplication.shared.open(AttributionLink.enrich(url))
         }
 
         private func pushDeviceID(to webView: WKWebView) {

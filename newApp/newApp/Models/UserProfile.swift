@@ -1,12 +1,6 @@
-//
-//  UserProfile.swift
-//  Alpha Academy
-//
-
 import Foundation
 import SwiftUI
 
-/// Academic ranks. Ordered; `RankTier.allCases` is the progression.
 enum RankTier: String, Codable, CaseIterable, Identifiable, Hashable {
     case cadet
     case operatorTier
@@ -24,7 +18,6 @@ enum RankTier: String, Codable, CaseIterable, Identifiable, Hashable {
         }
     }
 
-    /// XP required to reach this tier.
     var threshold: Int {
         switch self {
         case .cadet:         return 0
@@ -34,8 +27,6 @@ enum RankTier: String, Codable, CaseIterable, Identifiable, Hashable {
         }
     }
 
-    /// Number of chevrons/bars drawn by the insignia view. Rank is
-    /// communicated by geometry, never by colour.
     var insigniaMarks: Int {
         switch self {
         case .cadet:         return 1
@@ -56,17 +47,12 @@ enum RankTier: String, Codable, CaseIterable, Identifiable, Hashable {
     }
 }
 
-/// How the learner's avatar is drawn. The photo itself never lives in this
-/// struct — it is a JPEG on disk, because base64 image data inside the state
-/// JSON would multiply the file size and get rewritten on every save.
 enum AvatarKind: String, Codable, Hashable {
     case initials
     case symbol
     case photo
 }
 
-/// Avatar tints are constrained to the palette on purpose. A free colour
-/// picker would let the user paint themselves outside the design system.
 enum AvatarTint: String, Codable, CaseIterable, Identifiable, Hashable {
     case blue
     case amber
@@ -92,8 +78,6 @@ struct AvatarConfig: Codable, Hashable {
     var symbolName: String = "paperplane.fill"
     var tint: AvatarTint = .blue
 
-    /// A small curated set, all in the aviation / radio / academy vein so a
-    /// chosen icon still reads as part of this app.
     static let symbolChoices: [String] = [
         "paperplane.fill", "airplane", "antenna.radiowaves.left.and.right",
         "dot.radiowaves.left.and.right", "waveform", "mic.fill",
@@ -106,7 +90,7 @@ struct AvatarConfig: Codable, Hashable {
 struct UserProfile: Codable, Hashable {
     var name: String = ""
     var avatar = AvatarConfig()
-    /// Derived from `name` through the active alphabet, e.g. "Echo · Victor".
+
     var callsign: String = ""
     var preferredAlphabet: AlphabetID = .nato
     var dailyGoalMinutes: Int = 10
@@ -122,14 +106,13 @@ struct UserProfile: Codable, Hashable {
 
     var remindersEnabled: Bool = false
     var reminderTime: Date = UserProfile.defaultReminderTime
-    /// 0.4…0.7. `AVSpeechUtteranceDefaultSpeechRate` is 0.5.
+
     var speechRate: Double = 0.48
-    /// Speaking a card the moment it appears surprises people in quiet rooms.
+
     var autoSpeakInStudy: Bool = false
 
     var rank: RankTier { RankTier.forXP(xp) }
 
-    /// Progress through the current rank, 0…1. Full bar at the top rank.
     var rankProgress: Double {
         let current = rank
         guard let next = current.next else { return 1 }

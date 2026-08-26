@@ -1,8 +1,3 @@
-//
-//  SplashView.swift
-//  Alpha Academy
-//
-
 import SwiftUI
 
 struct SplashView: View {

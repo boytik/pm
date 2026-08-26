@@ -1,18 +1,6 @@
-//
-//  Alphabet_LawEnforcement.swift
-//  Alpha Academy
-//
-//  The APCO / LAPD radio alphabet used by US police and dispatch.
-//
-//  Agencies vary — APCO has revised its recommendation more than once and
-//  individual departments still differ on a few letters. The app labels
-//  this set "APCO / LAPD" rather than claiming a single national standard.
-//
-
 import Foundation
 
 enum Alphabet_LawEnforcement {
-
     static let letters: [PhoneticEntry] = [
         PhoneticEntry("A", word: "Adam", respelling: "AD-AM",
                       mnemonic: "\"Adam units\" are two-officer patrol cars in LAPD radio code."),
@@ -68,8 +56,6 @@ enum Alphabet_LawEnforcement {
                       mnemonic: "Also in the Able Baker set.")
     ]
 
-    /// Dispatch reads numbers plainly — no "niner", no "tree". That contrast
-    /// with the NATO set is itself worth teaching.
     static let digits: [PhoneticEntry] = [
         PhoneticEntry("0", kind: .digit, word: "Zero", respelling: "ZEE-RO",
                       mnemonic: "Plain reading, unlike aviation."),

@@ -1,11 +1,3 @@
-//
-//  ChartReferenceView.swift
-//  Alpha Academy
-//
-//  The cheat sheet. Must be scannable in one second while on a call, so
-//  it is a real table — fixed-height rows, hairline rules, no card chrome.
-//
-
 import SwiftUI
 
 struct ChartReferenceView: View {
@@ -32,8 +24,6 @@ struct ChartReferenceView: View {
                     section("Numbers", entries: filtered(alphabet.digits))
                     section("Symbols", entries: filtered(alphabet.punctuation))
 
-                    // The citation is the strongest "this is real reference
-                    // material" artefact in the app. Do not cut it.
                     Text(alphabet.provenance)
                         .font(.caption2)
                         .foregroundColor(Theme.ink3)

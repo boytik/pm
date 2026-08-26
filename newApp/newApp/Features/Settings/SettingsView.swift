@@ -1,8 +1,3 @@
-//
-//  SettingsView.swift
-//  Alpha Academy
-//
-
 import StoreKit
 import SwiftUI
 
@@ -17,9 +12,6 @@ struct SettingsView: View {
     @State private var isExporting = false
     @State private var exportFailed = false
 
-    /// Fill in once the listing exists. Until then Share falls back to the
-    /// plain description with no link, which is better than shipping a dead
-    /// URL to everyone the user invites.
     private static let appStoreID: String? = nil
 
     var body: some View {
@@ -72,8 +64,6 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Profile
-
     private var profileCard: some View {
         Button {
             showProfileEditor = true
@@ -119,15 +109,11 @@ struct SettingsView: View {
         .buttonStyle(PressableButtonStyle())
     }
 
-    // MARK: - Share & rate
-
     private var shareGroup: some View {
         SettingsGroup(
             title: "Share",
             footer: "The record is built on this device from your own progress."
         ) {
-            // ShareLink appears only once the file exists, so the sheet never
-            // opens on an empty or half-written PDF.
             if let reportURL {
                 ShareLink(
                     item: reportURL,
@@ -195,8 +181,6 @@ struct SettingsView: View {
         """ + (Self.appStoreID.map { "\n\nhttps://apps.apple.com/app/id\($0)" } ?? "")
     }
 
-    // MARK: - Alphabet
-
     private var alphabetGroup: some View {
         SettingsGroup(title: "Alphabet", footer: store.activeAlphabet.provenance) {
             ForEach(Array(AlphabetCatalog.all.enumerated()), id: \.element.id) { index, option in
@@ -218,8 +202,6 @@ struct SettingsView: View {
             }
         }
     }
-
-    // MARK: - Audio
 
     private var audioGroup: some View {
         SettingsGroup(title: "Audio") {
@@ -258,12 +240,9 @@ struct SettingsView: View {
         }
     }
 
-    /// The stored rate is a free Double; the picker offers three stops.
     private func nearestRate(_ value: Double) -> Double {
         [0.38, 0.48, 0.58].min { abs($0 - value) < abs($1 - value) } ?? 0.48
     }
-
-    // MARK: - Practice
 
     private var practiceGroup: some View {
         SettingsGroup(title: "Practice") {
@@ -329,8 +308,6 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - About
-
     private var aboutGroup: some View {
         SettingsGroup(
             title: "About",
@@ -354,8 +331,6 @@ struct SettingsView: View {
         return "\(short) (\(build))"
     }
 
-    // MARK: - Reset
-
     private var resetGroup: some View {
         SettingsGroup(title: "Data") {
             SettingsRow(
@@ -369,14 +344,11 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Export
-
     private func export() {
         guard !isExporting else { return }
         isExporting = true
         let model = ReportExporter.model(from: store)
-        // A hop off this runloop turn so the row can show its spinner before
-        // the render blocks the main actor.
+
         DispatchQueue.main.async {
             do {
                 reportURL = try ReportExporter.exportPDF(model: model)

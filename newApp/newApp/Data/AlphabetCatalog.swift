@@ -1,12 +1,6 @@
-//
-//  AlphabetCatalog.swift
-//  Alpha Academy
-//
-
 import Foundation
 
 enum AlphabetCatalog {
-
     static let all: [PhoneticAlphabet] = [
         Alphabet_NATO.alphabet,
         Alphabet_AbleBaker.alphabet,
@@ -21,12 +15,10 @@ enum AlphabetCatalog {
         }
     }
 
-    /// Every symbol that carries progress. Identical across all three sets,
-    /// so mastery denominators line up.
     static let trainableSymbols: [String] =
         (UnicodeScalar("A").value...UnicodeScalar("Z").value)
             .compactMap { UnicodeScalar($0).map { String(Character($0)) } }
         + (0...9).map(String.init)
 
-    static let trainableCount = trainableSymbols.count   // 36
+    static let trainableCount = trainableSymbols.count
 }

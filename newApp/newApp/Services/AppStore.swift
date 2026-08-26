@@ -1,21 +1,11 @@
-//
-//  AppStore.swift
-//  Alpha Academy
-//
-//  The single source of truth. Views read published state and call
-//  methods; nothing else mutates AppState.
-//
-
 import Combine
 import Foundation
 import SwiftUI
 
 final class AppStore: ObservableObject {
-
     @Published private(set) var state: AppState
     @Published private(set) var stats: DerivedStats
 
-    /// Drained by the session summary, one card at a time.
     @Published var pendingAchievements: [Achievement] = []
     @Published var pendingRankUp: RankTier?
 
@@ -28,8 +18,6 @@ final class AppStore: ObservableObject {
         self.state = loaded
         self.stats = StatsEngine.compute(loaded)
     }
-
-    // MARK: - Reads
 
     var profile: UserProfile { state.profile }
 
@@ -64,13 +52,10 @@ final class AppStore: ObservableObject {
         StatsEngine.snapshot(state, lastSession: state.sessions.last)
     }
 
-    /// Whether today's drill has already been done.
     var hasCompletedDrillToday: Bool {
         guard let last = state.profile.lastDrillDate else { return false }
         return Calendar.current.isDateInToday(last)
     }
-
-    // MARK: - Profile mutation
 
     func updateProfile(_ mutate: (inout UserProfile) -> Void) {
         mutate(&state.profile)
@@ -102,19 +87,14 @@ final class AppStore: ObservableObject {
         scheduleSave()
     }
 
-    // MARK: - The commit funnel
-
-    /// Everything a finished session changes, applied in one ordered pass.
     func commit(_ result: SessionResult) {
         var result = result
         let now = result.date
         let calendar = Calendar.current
 
-        // 1 — raw history, trimmed.
         state.answers.append(contentsOf: result.records)
         trim(&state.answers, to: AppState.Cap.answers)
 
-        // 2 — spaced repetition.
         var reachedMasteredFromZero = false
         for record in result.records {
             let before = state.progress(record.alphabet, record.symbol)
@@ -124,27 +104,19 @@ final class AppStore: ObservableObject {
         }
         if reachedMasteredFromZero { state.counters.tookALetterZeroToMastered = true }
 
-        // 3 — lifetime counters. These are never trimmed, so long-horizon
-        //     achievements stay reachable after history is capped.
         applyCounters(result, hour: calendar.component(.hour, from: now))
 
-        // 4 — today's rollup.
         applyDailyStat(result, on: calendar.startOfDay(for: now))
 
-        // 5 — session history, trimmed.
         state.sessions.append(result)
         trim(&state.sessions, to: AppState.Cap.sessions)
 
-        // 6 — streak.
         updateStreak(now: now)
         if result.mode == .dailyDrill { state.profile.lastDrillDate = now }
 
-        // 7 — XP and rank.
         let rankBefore = state.profile.rank
         state.profile.xp += result.xpAwarded
 
-        // 8 — achievements, which can award further XP and so can themselves
-        //     push the learner over a rank threshold.
         let unlocked = evaluateAchievements(lastSession: result)
         for achievement in unlocked {
             state.unlocked.append(
@@ -158,14 +130,10 @@ final class AppStore: ObservableObject {
         let rankAfter = state.profile.rank
         pendingRankUp = rankAfter != rankBefore ? rankAfter : nil
 
-        // 9 — derived stats, computed once.
         recomputeStats(now: now)
 
-        // 10 — persist.
         scheduleSave()
     }
-
-    // MARK: - Commit steps
 
     private func applyCounters(_ result: SessionResult, hour: Int) {
         var counters = state.counters
@@ -250,11 +218,11 @@ final class AppStore: ObservableObject {
         let days = calendar.dateComponents([.day], from: last, to: today).day ?? 0
         switch days {
         case 0:
-            break                                   // already counted today
+            break
         case 1:
             state.profile.streakDays += 1
         default:
-            // Covers both a genuine gap and a clock rolled backwards.
+
             state.profile.streakDays = 1
         }
 
@@ -270,8 +238,6 @@ final class AppStore: ObservableObject {
         }
     }
 
-    /// Recompute the streak on foreground so a broken streak shows before
-    /// the learner practises, not after.
     func refreshStreakIfNeeded(now: Date = Date()) {
         guard let last = state.profile.lastPracticeDay else { return }
         let calendar = Calendar.current
@@ -291,8 +257,6 @@ final class AppStore: ObservableObject {
         if array.count > cap { array.removeFirst(array.count - cap) }
     }
 
-    // MARK: - Reset
-
     func resetProgress(for id: AlphabetID) {
         state.progress[id.rawValue] = [:]
         recomputeStats()
@@ -308,11 +272,9 @@ final class AppStore: ObservableObject {
         saveNow()
     }
 
-    // MARK: - Saving
-
     private func scheduleSave() {
         saveTask?.cancel()
-        let snapshot = state          // value type: a later mutation cannot tear the write
+        let snapshot = state
         saveTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 800_000_000)
             guard !Task.isCancelled else { return }

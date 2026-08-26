@@ -1,17 +1,6 @@
-//
-//  ProfileEditorView.swift
-//  Alpha Academy
-//
-
 import PhotosUI
 import SwiftUI
 
-/// Name, callsign and avatar.
-///
-/// Photo selection uses `PhotosPicker`, which runs out of process and grants
-/// the app no library access at all — so this screen adds **no** permission
-/// prompt and no `NSPhotoLibraryUsageDescription`. That matters: in this
-/// category the apps badged "Data Not Collected" are the ones rated 5.0.
 struct ProfileEditorView: View {
     @EnvironmentObject private var store: AppStore
     @ObservedObject private var avatars = AvatarStore.shared
@@ -80,8 +69,6 @@ struct ProfileEditorView: View {
         }
     }
 
-    // MARK: - Preview
-
     private var preview: some View {
         VStack(spacing: Theme.Space.m) {
             AvatarView(profile: previewProfile, size: 96)
@@ -104,8 +91,6 @@ struct ProfileEditorView: View {
         .padding(.vertical, Theme.Space.xl)
         .cardSurface()
     }
-
-    // MARK: - Groups
 
     private var nameGroup: some View {
         SettingsGroup(
@@ -240,8 +225,6 @@ struct ProfileEditorView: View {
             .font(.system(size: 18))
             .foregroundColor(isOn ? Theme.blue : Theme.track)
     }
-
-    // MARK: - Actions
 
     private func load(_ item: PhotosPickerItem) async {
         guard let data = try? await item.loadTransferable(type: Data.self) else {

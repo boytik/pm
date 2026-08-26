@@ -1,8 +1,3 @@
-//
-//  OnboardingFlowView.swift
-//  Alpha Academy
-//
-
 import SwiftUI
 
 struct OnboardingFlowView: View {
@@ -37,8 +32,6 @@ struct OnboardingFlowView: View {
         .background(Theme.bg.ignoresSafeArea())
     }
 
-    // MARK: - Chrome
-
     private var progressBar: some View {
         HStack(spacing: Theme.Space.xs) {
             ForEach(0..<pageCount, id: \.self) { index in
@@ -66,8 +59,6 @@ struct OnboardingFlowView: View {
             }
         }
     }
-
-    // MARK: - Pages
 
     private var whyPage: some View {
         OnboardingPage(
@@ -208,8 +199,6 @@ struct OnboardingFlowView: View {
         }
     }
 
-    // MARK: - Logic
-
     private var derivedCallsign: String {
         guard !name.trimmingCharacters(in: .whitespaces).isEmpty else { return "" }
         return CallsignGenerator.callsign(
@@ -225,12 +214,6 @@ struct OnboardingFlowView: View {
             alphabet: alphabet
         )
 
-        // Never at launch, never on the first screen — a "not now" would burn
-        // the one system prompt we get. But it is asked regardless of the
-        // toggle: the toggle governs the daily drills, while notification
-        // permission is also what lets a server-sent funnel push be displayed
-        // at all. The device is registered for remote notifications at launch
-        // either way, so declining costs the display, not the token.
         Task {
             let granted = await NotificationService.requestAuthorization()
             store.updateProfile { $0.remindersEnabled = wantsReminder && granted }
@@ -242,7 +225,6 @@ struct OnboardingFlowView: View {
     }
 }
 
-/// Shared layout so the four steps cannot drift apart.
 private struct OnboardingPage<Content: View>: View {
     let symbolName: String
     let title: String

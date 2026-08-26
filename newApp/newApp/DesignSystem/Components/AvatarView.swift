@@ -1,19 +1,9 @@
-//
-//  AvatarView.swift
-//  Alpha Academy
-//
-
 import SwiftUI
 
-/// The learner's mark. Three forms, one shape.
-///
-/// Initials are derived from the callsign rather than the raw name — "Echo
-/// Victor" gives "EV", which keeps even the default avatar on-theme.
 struct AvatarView: View {
     let profile: UserProfile
     var size: CGFloat = 44
-    /// Rendering into a PDF cannot reach the shared store, so the image is
-    /// injectable.
+
     var photoOverride: UIImage?
 
     @ObservedObject private var store = AvatarStore.shared
@@ -39,8 +29,6 @@ struct AvatarView: View {
                         .resizable()
                         .scaledToFill()
                 } else {
-                    // Photo was chosen but the file is gone. Fall back rather
-                    // than showing an empty hole.
                     fill
                     initialsLabel
                 }
@@ -69,8 +57,6 @@ struct AvatarView: View {
     }
 
     private var initialsLabel: some View {
-        // Serif initials, same face as the letter glyph — the avatar belongs
-        // to the same typographic family as the thing being taught.
         Text(initials)
             .font(AppFont.glyph(size * 0.44))
             .foregroundColor(profile.avatar.tint.color)

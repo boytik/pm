@@ -1,12 +1,3 @@
-//
-//  StatsEngine.swift
-//  Alpha Academy
-//
-//  Pure functions over AppState. Computed once on commit and once at
-//  launch — never from a SwiftUI body, because walking 2 000 records
-//  every frame will visibly stutter the Progress tab.
-//
-
 import Foundation
 
 struct HardLetter: Identifiable, Hashable {
@@ -37,8 +28,7 @@ struct WeekAggregate: Hashable {
 struct TrendSnapshot: Hashable {
     var thisWeek = WeekAggregate()
     var lastWeek = WeekAggregate()
-    /// Percentage points. Nil when there is no prior week to compare with —
-    /// never a "+∞%".
+
     var accuracyDeltaPoints: Double?
     var xpDelta: Int?
     var isFirstWeek = true
@@ -48,10 +38,9 @@ struct DerivedStats {
     var masteryByAlphabet: [AlphabetID: Double] = [:]
     var dueCountByAlphabet: [AlphabetID: Int] = [:]
     var hardestLetters: [HardLetter] = []
-    /// Weakest symbols overall — drives question selection.
+
     var weakestSymbols: [String] = []
-    /// Weakest symbols the learner has actually attempted. "Needs work"
-    /// must not be a list of things they have never seen.
+
     var weakestAttempted: [String] = []
     var untouchedCount: Int = 0
     var accuracyByMode: [TrainingMode: ModeAccuracy] = [:]
@@ -67,7 +56,6 @@ struct DerivedStats {
 }
 
 enum StatsEngine {
-
     static func compute(_ state: AppState, now: Date = Date()) -> DerivedStats {
         var stats = DerivedStats()
         let alphabet = state.profile.preferredAlphabet
@@ -108,10 +96,6 @@ enum StatsEngine {
         return stats
     }
 
-    // MARK: - Pieces
-
-    /// Requiring at least three answers stops one unlucky miss from
-    /// crowning a letter "hardest" forever.
     static func hardestLetters(in map: [String: LetterProgress], limit: Int = 5) -> [HardLetter] {
         var candidates: [HardLetter] = []
         for progress in map.values where progress.answered >= 3 {
@@ -199,7 +183,6 @@ enum StatsEngine {
         return snapshot
     }
 
-    /// Empty days must be inserted or the sparkline lies about consistency.
     static func zeroFilledDays(_ stats: [DailyStat], days: Int, now: Date) -> [DailyStat] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: now)
@@ -213,8 +196,6 @@ enum StatsEngine {
         }
         return result
     }
-
-    // MARK: - Snapshot for achievements
 
     static func snapshot(_ state: AppState, lastSession: SessionResult?) -> StatsSnapshot {
         var snapshot = StatsSnapshot()

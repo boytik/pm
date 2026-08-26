@@ -1,11 +1,5 @@
-//
-//  Progress.swift
-//  Alpha Academy
-//
-
 import Foundation
 
-/// The five training modes. Raw values are persisted — do not rename.
 enum TrainingMode: String, Codable, CaseIterable, Identifiable, Hashable {
     case study
     case letterToWord
@@ -17,8 +11,6 @@ enum TrainingMode: String, Codable, CaseIterable, Identifiable, Hashable {
 
     var id: String { rawValue }
 
-    /// The five modes shown on the Practice hub. Daily Drill is launched
-    /// from Home instead.
     static var practiceModes: [TrainingMode] {
         [.study, .letterToWord, .wordToLetter, .encode, .decode, .speed]
     }
@@ -59,7 +51,6 @@ enum TrainingMode: String, Codable, CaseIterable, Identifiable, Hashable {
         }
     }
 
-    /// XP awarded per correct answer, before accuracy and combo bonuses.
     var baseXP: Int {
         switch self {
         case .study:                       return 2
@@ -71,24 +62,21 @@ enum TrainingMode: String, Codable, CaseIterable, Identifiable, Hashable {
         }
     }
 
-    /// Study is a browsing mode; it does not produce a score.
     var isScored: Bool { self != .study }
 }
 
-/// Retention state for a single symbol within a single alphabet.
 struct LetterProgress: Codable, Hashable {
     var symbol: String
     var level: Int = 0
     var correct: Int = 0
     var wrong: Int = 0
     var answered: Int = 0
-    /// Consecutive good answers at the current level. Resets on any mistake.
+
     var streak: Int = 0
     var lastSeen: Date?
     var lastCorrect: Date?
     var totalResponseMs: Int = 0
-    /// Enables the double-demotion rule: missing the same letter twice in a
-    /// row drops it two levels, not one.
+
     var lastAnswerWasWrong: Bool = false
 
     static let maxLevel = 5
@@ -105,13 +93,11 @@ struct LetterProgress: Codable, Hashable {
         answered == 0 ? 0 : totalResponseMs / answered
     }
 
-    /// 0…1, used by the mastery grid fill.
     var mastery: Double { Double(level) / Double(Self.maxLevel) }
 
     var isMastered: Bool { level >= Self.maxLevel }
 }
 
-/// One answer, kept so stats and trends can be recomputed from raw history.
 struct AnswerRecord: Codable, Hashable, Identifiable {
     var id = UUID()
     let date: Date
@@ -119,8 +105,7 @@ struct AnswerRecord: Codable, Hashable, Identifiable {
     let mode: TrainingMode
     let symbol: String
     let wasCorrect: Bool
-    /// Clamped on write so a backgrounded app cannot record a four-hour
-    /// answer and permanently mark a letter "shaky".
+
     let responseMs: Int
 
     var isDigit: Bool { symbol.first.map(\.isNumber) ?? false }
@@ -142,8 +127,6 @@ struct AnswerRecord: Codable, Hashable, Identifiable {
     }
 }
 
-/// The outcome of one finished session, handed to the summary screen and
-/// then applied to the store in a single transaction.
 struct SessionResult: Codable, Hashable, Identifiable {
     var id = UUID()
     let mode: TrainingMode
@@ -155,12 +138,12 @@ struct SessionResult: Codable, Hashable, Identifiable {
     let bestCombo: Int
     var score: Int = 0
     var xpAwarded: Int = 0
-    /// Encode mode: how many characters were spelled out.
+
     var charactersEncoded: Int = 0
-    /// Encode mode: the longest string completed without a mistake.
+
     var longestCleanString: Int = 0
     var scenarioCategory: ScenarioCategory?
-    /// Decode mode: how many times the learner replayed the audio.
+
     var replayCount: Int = 0
     var records: [AnswerRecord] = []
 

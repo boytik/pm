@@ -1,12 +1,3 @@
-//
-//  WebRetryView.swift
-//  Alpha Academy
-//
-//  Shown only when the saved page has failed and the one rebuild attempt is
-//  spent. Web mode is a permanent decision, so this is a way back onto the page
-//  rather than a door into the native trainer.
-//
-
 import SwiftUI
 
 struct WebRetryView: View {
@@ -39,7 +30,6 @@ struct WebRetryView: View {
 
             Spacer()
 
-            // The only action on the screen, so it is the screen's one hot button.
             PrimaryButton(title: "Try Again", systemImage: "arrow.clockwise", action: retry)
                 .padding(.horizontal, Theme.Space.xl)
                 .padding(.bottom, Theme.Space.xxl)

@@ -1,8 +1,3 @@
-//
-//  PracticeHubView.swift
-//  Alpha Academy
-//
-
 import SwiftUI
 
 struct PracticeHubView: View {
@@ -38,7 +33,7 @@ struct PracticeHubView: View {
                 }
                 .padding(.horizontal, Theme.Space.l)
                 .padding(.top, Theme.Space.l)
-                // Clears the floating tab bar.
+
                 .padding(.bottom, Theme.tabBarClearance)
             }
             .background(Theme.bg.ignoresSafeArea())
@@ -56,8 +51,7 @@ struct PracticeHubView: View {
             }
             .onAppear {
                 #if DEBUG
-                // Lets QA jump straight into a mode:
-                //   SIMCTL_CHILD_AA_INITIAL_MODE=encode xcrun simctl launch …
+
                 if activeMode == nil,
                    let raw = ProcessInfo.processInfo.environment["AA_INITIAL_MODE"],
                    let mode = TrainingMode(rawValue: raw) {

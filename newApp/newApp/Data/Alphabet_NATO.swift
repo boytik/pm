@@ -1,20 +1,6 @@
-//
-//  Alphabet_NATO.swift
-//  Alpha Academy
-//
-//  ICAO Annex 10, Volume II. In force since 1 March 1956 and used
-//  identically by NATO, civil aviation, and maritime radio.
-//
-//  Note the official spellings: "Alfa" (not Alpha) and "Juliett" (not
-//  Juliet). Both are deliberate, so speakers of other languages do not
-//  drop the "ph" or the final "t".
-//
-
 import Foundation
 
 enum Alphabet_NATO {
-
-    // Explicit type annotations on these literals keep the type checker fast.
     static let letters: [PhoneticEntry] = [
         PhoneticEntry("A", word: "Alfa", respelling: "AL-FAH",
                       mnemonic: "Spelled with an f so it survives every accent — never \"Alpha\" on the radio."),
@@ -70,10 +56,6 @@ enum Alphabet_NATO {
                       mnemonic: "Also the name for UTC — \"1400 Zulu\".")
     ]
 
-    /// Aviation numerals. The written form and the spoken form deliberately
-    /// differ for 3, 4, 5 and 9 — that gap is one of the most useful things
-    /// in this app, so `spokenOverride` drives the audio while `word` is
-    /// what the learner types.
     static let digits: [PhoneticEntry] = [
         PhoneticEntry("0", kind: .digit, word: "Zero", respelling: "ZE-RO",
                       mnemonic: "Always \"zero\", never \"oh\" — \"oh\" is a letter."),

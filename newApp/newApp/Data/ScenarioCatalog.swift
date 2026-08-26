@@ -1,23 +1,11 @@
-//
-//  ScenarioCatalog.swift
-//  Alpha Academy
-//
-//  Realistic strings to spell out. These are the difference between a
-//  flashcard app and a trainer: the skill is reading a whole booking
-//  reference aloud without being asked to repeat it.
-//
-
 import Foundation
 
 enum ScenarioCatalog {
-
     static let all: [ScenarioSet] = [flight, hotel, email, serial, document, tracking]
 
     static func set(for category: ScenarioCategory) -> ScenarioSet {
         all.first { $0.category == category } ?? flight
     }
-
-    // MARK: - Sets
 
     static let flight = ScenarioSet(
         id: "flight.iata",
@@ -91,16 +79,12 @@ enum ScenarioCatalog {
         difficulty: 3
     )
 
-    // MARK: - Generation
-
-    /// Expands one pattern into a concrete string.
-    /// `A` = letter, `#` = digit, `?` = alphanumeric, anything else literal.
     static func expand(
         pattern: String,
         using generator: inout some RandomNumberGenerator
     ) -> String {
-        let letters = Array("ABCDEFGHIJKLMNPQRSTUVWXYZ")   // no O, avoids 0/O
-        let digits = Array("123456789")                    // no 0, same reason
+        let letters = Array("ABCDEFGHIJKLMNPQRSTUVWXYZ")
+        let digits = Array("123456789")
         var out = ""
         for token in pattern {
             switch token {
@@ -115,8 +99,6 @@ enum ScenarioCatalog {
         return out
     }
 
-    /// One string from a set: curated samples and generated patterns mixed,
-    /// with `exclude` filtered out so the same reference does not repeat.
     static func string(
         from set: ScenarioSet,
         exclude: [String] = [],
@@ -125,7 +107,6 @@ enum ScenarioCatalog {
         let fresh = set.samples.filter { !exclude.contains($0) }
         let pool = fresh.isEmpty ? set.samples : fresh
 
-        // Patterns keep the pool from ever running dry.
         if !set.patterns.isEmpty, Bool.random(using: &generator) {
             let pattern = set.patterns.randomElement(using: &generator) ?? set.patterns[0]
             return expand(pattern: pattern, using: &generator)
