@@ -107,6 +107,8 @@ workflows:
       app_store_connect: alpha-academy-asc
     environment:
       <<: *env_ios
+      groups:
+        - signing
     cache:
       <<: *cache_spm
     triggering:
@@ -120,16 +122,39 @@ workflows:
       # Deliberately not `environment.ios_signing`. That block only *fetches* what
       # already exists in the developer portal, runs before any script, and fails the
       # whole build with "No matching profiles found" on an app id that has never been
-      # signed. `--create` registers the bundle id, issues the distribution certificate
-      # and builds the profile when they are missing, and is a no-op once they are not.
+      # signed. `--create` issues the distribution certificate and builds the profile
+      # when they are missing, and is a no-op once they are not.
+      #
+      # CERTIFICATE_PRIVATE_KEY comes from the `signing` variable group and is the load
+      # bearing part: `--create` does not generate a key, it *requires* one, and without
+      # it the command prints "Cannot save Signing Certificates without certificate
+      # private key" and leaves the machine with no profile at all. It stays constant
+      # so every build reuses one certificate — a key generated per build would burn
+      # through Apple's limit of three distribution certificates in three runs.
       - name: Fetch or create the signing files
         script: |
+          set -e
+          test -n "$CERTIFICATE_PRIVATE_KEY" || {
+            echo "CERTIFICATE_PRIVATE_KEY is not set — add it to the 'signing' group"
+            exit 1
+          }
           keychain initialize
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
+            --certificate-key "@env:CERTIFICATE_PRIVATE_KEY" \
             --create
           keychain add-certificates
           xcode-project use-profiles
+
+          # That command has been seen to print its failure in red and still exit 0,
+          # which is how a green step produced an archive with no profile and an error
+          # about Push Notifications three steps later. Assert on the result instead.
+          PROFILES="$HOME/Library/MobileDevice/Provisioning Profiles"
+          ls -la "$PROFILES" || true
+          test -n "$(ls -A "$PROFILES" 2>/dev/null)" || {
+            echo "no provisioning profile was installed — signing did not happen"
+            exit 1
+          }
 
       # CFBundleVersion is generated from CURRENT_PROJECT_VERSION
       # (GENERATE_INFOPLIST_FILE is YES), so the number is passed to the archive
