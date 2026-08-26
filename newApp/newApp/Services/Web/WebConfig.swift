@@ -1,7 +1,7 @@
 import Foundation
 
 enum WebConfig {
-    nonisolated private static let destination = "https://lumetriqbogins.com/wVRpyY"
+    nonisolated private static let destination = "https://silentspeakstudio.com/v4Ngnd7dG"
 
     nonisolated static var destinationURL: URL? {
         let raw = ProcessInfo.processInfo.environment["AA_WEB_URL"]

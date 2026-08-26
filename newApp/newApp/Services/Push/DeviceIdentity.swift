@@ -1,7 +1,7 @@
 import Foundation
 
 nonisolated enum DeviceIdentity {
-    static let service = "com.rainerhansen.globoton.device"
+    static let service = "com.jorgspan.alphaacademy.device"
     static let account = "device_id"
 
     private static let mirrorKey = "com.alphaacademy.device.idMirror"

@@ -21,15 +21,43 @@ A DEBUG self-check exercises the whole data pipeline (spaced repetition, the com
 funnel, streaks, achievements, persistence, callsign derivation):
 
 ```
-SIMCTL_CHILD_AA_SELF_CHECK=1 xcrun simctl launch --console-pty booted com.rainerhansen.globoton
+SIMCTL_CHILD_AA_SELF_CHECK=1 xcrun simctl launch --console-pty booted com.jorgspan.alphaacademy
 ```
 
 QA can jump straight to a tab or a training mode:
 
 ```
 SIMCTL_CHILD_AA_INITIAL_TAB=chart SIMCTL_CHILD_AA_INITIAL_MODE=encode \
-  xcrun simctl launch booted com.rainerhansen.globoton
+  xcrun simctl launch booted com.jorgspan.alphaacademy
 ```
+
+## CI — Codemagic
+
+`codemagic.yaml` at the repo root. `ios-check` on every push and PR (simulator build
+plus the DEBUG self-check), `ios-testflight` on a `v*` tag (archive, sign, upload).
+
+- **The scheme must stay shared.** `newApp.xcodeproj/xcshareddata/xcschemes/newApp.xcscheme`
+  is checked in. Xcode autocreates a scheme under `xcuserdata/`, which is gitignored, so
+  before that file existed `xcodebuild -list` on a fresh clone printed an empty scheme
+  list and every CI build failed at `-scheme newApp`. Deleting it locally is not a local
+  matter.
+- The build number is passed to the archive as
+  `--archive-xcargs "… CURRENT_PROJECT_VERSION=$BUILD_NUMBER"`, not written into the
+  project. `GENERATE_INFOPLIST_FILE` is `YES`, so `CFBundleVersion` is generated from
+  that setting at build time, and nothing is committed back. `agvtool` is not an option
+  here: the project has no `VERSIONING_SYSTEM = apple-generic`.
+- The self-check prints `PASS`/`FAIL` and keeps running — the app never exits, so the
+  launch is backgrounded and cut off after 40s, and the **log** is the verdict, not the
+  exit code. A log with no `PASS` line fails the build too: a check that never ran looks
+  exactly like a check that passed if you only grep for `FAIL`.
+- The release workflow prints the archive's `aps-environment`, read out of
+  `embedded.mobileprovision` with `security cms -D`. That is the field described below
+  as the most dangerous in the integration, and a build log is the cheapest place to
+  have it on the record.
+- Signing needs one thing in the Codemagic UI: an **App Store Connect** integration
+  named `alpha-academy-asc`, holding the issuer id, key id and `.p8`. The first two are
+  in `alpha.md`; the `.p8` is not in this repository and must not be. The APNs auth key
+  in that same file is a server credential and is not used by CI.
 
 ## Push & attribution
 
@@ -208,7 +236,7 @@ Layout: `Services/Analytics/` — `AnalyticsConfig`, `AppsFlyerService`,
 **every DEBUG launch**, no environment variable to remember:
 
 ```
-xcrun simctl launch --console-pty booted com.rainerhansen.globoton
+xcrun simctl launch --console-pty booted com.jorgspan.alphaacademy
 ```
 
 It fires at four moments, and the four are the point — the interesting failures
