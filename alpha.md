@@ -30,48 +30,78 @@ gw.dataimpulse.com:10001:9341f365fd6826eeae51__cr.us:54be503e2b9ad2ea
 
 ### Promotional Text (max 170)
 
-Read the clues. Call the result. Every case is a real football match, redacted — make your three calls, then declassify the file and see how it really went.
+Spell it once and be heard the first time. Learn the NATO alphabet, then drill it on the codes you really read out loud — bookings, emails, tracking numbers.
 
-> 156 / 170
+> 157 / 170
 
 ### Description (max 4,000)
 
-THE CASE DESK IS OPEN.
+SPELL IT ONCE. BE HEARD THE FIRST TIME.
 
-Guess the Match is a football detective quiz built from real games. Every case hands you a match with the teams and the score redacted. Read the evidence, trust your gut, and call it.
+You are on the phone. The agent is waiting. You are three letters into a booking reference and "S as in… Sierra?" is already too slow. Alpha Academy trains the one skill nobody teaches you: reading a code out loud so the other end gets it right the first time.
 
-HOW A CASE PLAYS
-• Open the file — the teams and score start classified, with a "Scout's Read" from an AI pundit sizing up the tape.
-• Work the evidence — clues reveal one at a time. The first are free; deeper ones cost you bonus. Crack it cold and you keep the full reward.
-• Make your three calls — the result, a team that played, and the total goals.
-• Lock in & declassify — see the real teams, the score, the scorers and a short report on how it went, then your verdict layer by layer.
+It teaches the NATO/ICAO phonetic alphabet — Alfa through Zulu plus the digits — and then makes you use it on the strings you actually have to spell.
 
-RIGHT CALLS SCORE. COLD READS SCORE MORE.
-Every call is scored on its own, so even a half-read case banks points. Every paid clue you leave shut lifts your bravery bonus, up to ×1.5 — solve a case on a hunch and it pays out big. Nail all three and it's a Perfect Match.
+HOW IT TRAINS
 
-TWO WAYS TO PLAY
-• Daily Case — one mystery match a day, the same for every player. Keep your day streak alive.
-• Cold Case — a random match from an archive of 100+ real games. Play as many as you like.
+• Learn the plate — every letter arrives as a printed card: the glyph, the code word, a respelled pronunciation key like AL-FAH, one line on why the word is what it is, and the audio.
+• Drill both directions — letter to word for when you are spelling, word to letter for when someone is spelling to you.
+• Read a real string — encode a booking reference in order, or listen to one being spelled and write down what you heard.
+• Keep it warm — a Daily Drill built from your weak letters plus one string. Two minutes a day holds the whole chart.
 
-THEMED CASE FILES
-Hand-picked runs of cases: World Cup Finals, Champions League Classics, World Cup Shocks, Great Comebacks, Penalty Drama and more. Close every file in a pack to become Pack Master.
+SIX PRACTICE MODES
 
-EIGHT BADGES TO EARN
-From First Verdict and Cold Read to Centurion and the flawless Perfect Match.
+• Study — cards with audio and mnemonics
+• Letter → Word — see a letter, call the code word
+• Word → Letter — hear a code word, name the letter
+• Encode a String — spell out a real reference, in order
+• Decode by Ear — listen, then write down what you heard
+• Speed Mode — sixty seconds, build a combo
+
+THE STRINGS YOU ACTUALLY SPELL
+
+Encode and Decode draw from six scenario sets, so you are never spelling nonsense: flight numbers, hotel confirmations, email addresses, device serial numbers, passport and document numbers, and parcel tracking codes.
+
+MASTERY PER SYMBOL, NOT ONE BLUNT SCORE
+
+All 36 letters and digits carry their own level from 0 to 5. Answer one correctly and it moves up and is scheduled further out; miss it and it comes back sooner. Questions are drawn from what is due, so the letters you already know stop taking up your time — and the chart fills in as you go.
+
+THREE ALPHABETS
+
+• NATO / ICAO — the international aviation and maritime standard
+• Able Baker — the WWII Allied military and aviation set
+• Law Enforcement — the set used by US police and dispatch
+
+Switch any time. Progress for each set is kept separately.
+
+THE CHART, ALWAYS ONE TAP AWAY
+
+A full reference table you can reach mid-call — every symbol, its code word and how to say it. It never hides behind a session, because the moment you need it is not the moment you are practising.
 
 TRACK YOUR RECORD
-Best case, day streak, longest streak, cases solved, and accuracy broken down by layer — results, teams and goals.
 
-• 100+ real matches from football history
-• An AI pundit for colour, never a spoiler — with a built-in offline fallback
-• Plays fully offline, no account, no ads
-• Shareable verdict cards to dare your friends
+Day streaks, accuracy by mode, XP and four ranks from Cadet to Wing Commander. 34 achievements to earn, from First Contact to Chart Complete. Export a one-page training record as a PDF whenever you want proof.
 
-Not affiliated with FIFA, UEFA or any official organisation, league or competition. Team names are used for identification only, and match facts are based on publicly available historical results. No real-money betting, odds or wagering — just bragging rights.
+ALSO IN THE APP
 
-Read the clues. Call the result.
+• Your own callsign, derived from your initials and spelled properly
+• Spoken audio at a speed you control
+• An optional daily reminder, at a time you pick
+• Works fully offline — no connection needed to train
+• No account, no sign-in, no ads, nothing gated behind a paywall
+
+WHO IT IS FOR
+
+Pilots and student pilots, air traffic and dispatch, maritime and amateur radio operators, customer support and front-desk staff, logistics and delivery, and anyone who has ever improvised "M as in… Mike?" and been misheard anyway.
+
+Alpha Academy is an independent training app. It is not affiliated with, endorsed by or associated with NATO, ICAO, the ITU or any aviation, maritime or law-enforcement authority. The phonetic alphabets it teaches are public standards, reproduced for training only.
+
+Spell it once. Be heard the first time.
+
+> 3489 / 4,000
 
 ### Keywords (max 100, comma-separated, no spaces after commas)
 
-soccer,football,quiz,trivia,detective,clue,mystery,guess,puzzle,sport,league,score,predict,fan,daily
+nato,phonetic,alphabet,spelling,icao,aviation,callsign,radio,pilot,dispatch,marine,letters
 
+> 90 / 100
