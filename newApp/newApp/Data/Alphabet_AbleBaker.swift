@@ -1,19 +1,6 @@
-//
-//  Alphabet_AbleBaker.swift
-//  Alpha Academy
-//
-//  The Joint Army/Navy Phonetic Alphabet, used by Allied forces and
-//  aviation from 1941 until ICAO replaced it in 1956.
-//
-//  Only Charlie, Mike, Victor and X-ray survived into the modern set —
-//  which makes this a genuinely interesting second alphabet rather than
-//  a reskin of the first.
-//
-
 import Foundation
 
 enum Alphabet_AbleBaker {
-
     static let letters: [PhoneticEntry] = [
         PhoneticEntry("A", word: "Able", respelling: "AY-BUL",
                       mnemonic: "The set is named after its first two words: Able Baker."),
@@ -69,8 +56,6 @@ enum Alphabet_AbleBaker {
                       mnemonic: "Naval \"Condition Zebra\" means every hatch sealed.")
     ]
 
-    /// Wartime numeral pronunciation was less standardised than ICAO's.
-    /// "Niner" was already in use; the rest are read plainly.
     static let digits: [PhoneticEntry] = [
         PhoneticEntry("0", kind: .digit, word: "Zero", respelling: "ZEE-RO",
                       mnemonic: "Never \"oh\" — that rule is older than ICAO."),

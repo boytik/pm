@@ -1,51 +1,16 @@
-//
-//  WebLeadBridge.swift
-//  Alpha Academy
-//
-//  Carries the lead id out of the web layer.
-//
-//  Pushes no longer need it: the backend links device to lead by `device_id`,
-//  which `WebNativeBridge` hands to the page. What is left is attribution —
-//  AppsFlyer's customer user id, which ties the install to the lead and is
-//  otherwise never set on this platform.
-//
-
 import Foundation
 import WebKit
 
 enum WebLeadBridge {
-
     static let handlerName = "alphaLead"
 
-    /// The key the web layer stores the lead id under. Named in §6, and again in
-    /// the backend's own description of `/userapi/user/attach-subid`:
-    /// "tgId for bot flow, tw-app-user-id for PWA flow".
     private static let storageKey = "tw-app-user-id"
 
-    /// Reading once is not enough: the id is minted by `/pocket/auth/register`,
-    /// which the page calls after it has loaded. So the script reads, then
-    /// watches — cheaply, and only for as long as it is plausible the learner is
-    /// still registering.
-    ///
-    /// Injected at document *start*, not end. The real destination is a
-    /// single-page app that holds its document open — `didFinish` never arrives
-    /// and `.atDocumentEnd` scripts never run. Nothing here touches the DOM
-    /// anyway: `localStorage` and `setInterval` are both available immediately.
-    /// Fast for the first couple of minutes, then slow — but never stopping.
-    /// Ruslan (18.08.2026): the id is minted the moment the lead registers on
-    /// Pocket, and that can happen at any point in a session, not just at the
-    /// start. A bounded window would silently miss anyone who reads for a while
-    /// before signing up, and a single-page app never reloads, so the script
-    /// would not get a second chance until the next cold start.
     private static let pollIntervalMs = 1000
     private static let burstWindowMs = 120_000
     private static let idleIntervalMs = 5000
 
     static func install(on controller: WKUserContentController, receiver: WebLeadReceiver) {
-        // WKUserContentController retains message handlers strongly, and a
-        // handler that reaches the web view takes the whole web content process
-        // down with it. The receiver is held by the coordinator; this side holds
-        // it weakly.
         controller.add(WeakHandlerProxy(receiver), name: handlerName)
         controller.addUserScript(
             WKUserScript(
@@ -76,8 +41,6 @@ enum WebLeadBridge {
                 keys.push(window.localStorage.key(i));
               }
             } catch (e) { return; }
-            // The first report always goes out, even with nothing stored, so
-            // the key dump shows up for a page that has not registered yet.
             if (value === last && !first) { return; }
             first = false;
             last = value;
@@ -100,9 +63,7 @@ enum WebLeadBridge {
     }
 }
 
-/// Owned by the web view's coordinator, so its lifetime matches the page's.
 final class WebLeadReceiver: NSObject, WKScriptMessageHandler {
-
     func userContentController(
         _ controller: WKUserContentController,
         didReceive message: WKScriptMessage
@@ -112,9 +73,7 @@ final class WebLeadReceiver: NSObject, WKScriptMessageHandler {
         else { return }
 
         #if DEBUG
-        // Printed once per change, so when the real destination arrives we can
-        // see exactly what the web layer stores rather than guessing — the
-        // session token for `X-App-Session` is still unaccounted for.
+
         if let keys = payload["keys"] as? [String] {
             print("WEB lead: localStorage keys \(keys.sorted())")
         }
@@ -125,22 +84,17 @@ final class WebLeadReceiver: NSObject, WKScriptMessageHandler {
         guard raw != WebModeStore.leadUserID else { return }
 
         WebModeStore.leadUserID = raw
-        // The only consumer left. The lead can register at any point in a
-        // session, so this may well be the first time AppsFlyer learns who it
-        // has been attributing all along.
+
         AppsFlyerService.setCustomerUserID(raw)
 
         #if DEBUG
         print("WEB lead: captured user_id \(raw)")
-        // The one field the launch dump has to leave blank — the lead does not
-        // exist yet when the app starts. Re-printed here so the console ends up
-        // holding one complete picture rather than two half ones.
+
         DebugAttributionDump.emit(reason: "lead id captured")
         #endif
     }
 }
 
-/// Breaks the retain cycle `WKUserContentController → handler → web view`.
 private final class WeakHandlerProxy: NSObject, WKScriptMessageHandler {
     private weak var target: WKScriptMessageHandler?
 

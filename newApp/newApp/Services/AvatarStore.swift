@@ -1,26 +1,12 @@
-//
-//  AvatarStore.swift
-//  Alpha Academy
-//
-//  The avatar photo lives on disk as a JPEG, not inside the state JSON.
-//  Base64 image data in that file would multiply its size and force a full
-//  rewrite on every debounced save.
-//
-
 import Combine
 import SwiftUI
 import UIKit
 
 final class AvatarStore: ObservableObject {
-
     static let shared = AvatarStore()
 
-    /// Published so every avatar on screen updates the moment a new photo
-    /// is chosen, without threading the image through the view tree.
     @Published private(set) var image: UIImage?
 
-    /// Photos are downscaled before saving. A full-resolution shot from a
-    /// modern camera is ~4 MB and we draw it at 72 pt.
     private let maxDimension: CGFloat = 512
     private let fileName = "avatar.jpg"
 
@@ -39,8 +25,6 @@ final class AvatarStore: ObservableObject {
 
     private var fileURL: URL { directoryURL.appendingPathComponent(fileName) }
 
-    // MARK: - Reading
-
     private func loadFromDisk() -> UIImage? {
         guard let data = try? Data(contentsOf: fileURL) else { return nil }
         return UIImage(data: data)
@@ -48,10 +32,6 @@ final class AvatarStore: ObservableObject {
 
     var hasPhoto: Bool { image != nil }
 
-    // MARK: - Writing
-
-    /// Returns false when the data could not be decoded, so the caller can
-    /// tell the user instead of silently keeping the old avatar.
     @discardableResult
     func save(_ data: Data) -> Bool {
         guard let decoded = UIImage(data: data) else { return false }
@@ -69,8 +49,6 @@ final class AvatarStore: ObservableObject {
 }
 
 private extension UIImage {
-    /// Aspect-fit downscale. Returns self when already small enough, so a
-    /// modest image is never re-encoded for nothing.
     func downscaled(to maxDimension: CGFloat) -> UIImage {
         let longest = max(size.width, size.height)
         guard longest > maxDimension, longest > 0 else { return self }

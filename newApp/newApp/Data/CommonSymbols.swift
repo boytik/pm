@@ -1,11 +1,3 @@
-//
-//  CommonSymbols.swift
-//  Alpha Academy
-//
-//  Punctuation shared by every alphabet. Needed so email addresses and
-//  serial numbers can actually be spelled out. Not mastery-tracked.
-//
-
 import Foundation
 
 enum CommonSymbols {

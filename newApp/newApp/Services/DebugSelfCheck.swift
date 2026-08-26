@@ -1,22 +1,8 @@
-//
-//  DebugSelfCheck.swift
-//  Alpha Academy
-//
-//  A DEBUG-only end-to-end exercise of the data pipeline: spaced
-//  repetition, the commit funnel, streaks, XP, achievements and
-//  persistence. Run with:
-//
-//    SIMCTL_CHILD_AA_SELF_CHECK=1 xcrun simctl launch booted <bundle-id>
-//
-//  and read the results with `xcrun simctl spawn booted log stream`.
-//
-
 #if DEBUG
 import Foundation
 import UIKit
 
 enum DebugSelfCheck {
-
     static var isRequested: Bool {
         ProcessInfo.processInfo.environment["AA_SELF_CHECK"] == "1"
     }
@@ -33,18 +19,12 @@ enum DebugSelfCheck {
             }
         }
 
-        // 0 — bundled fonts actually registered.
-        //
-        // SwiftUI's .custom() falls back to the system face silently when a
-        // font is missing, so without this check a broken UIAppFonts entry
-        // ships looking merely "a bit off".
         for family in ["Instrument Serif", "IBM Plex Mono", "IBM Plex Mono SemiBold"] {
             let names = UIFont.fontNames(forFamilyName: family)
             check("font registered: \(family)", !names.isEmpty,
                   "UIFont.fontNames returned empty — check UIAppFonts uses bare filenames")
         }
 
-        // 1 — alphabet data integrity.
         for alphabet in AlphabetCatalog.all {
             check("\(alphabet.id.rawValue).letters==26", alphabet.letters.count == 26,
                   "got \(alphabet.letters.count)")
@@ -57,7 +37,6 @@ enum DebugSelfCheck {
                   symbols == Set(AlphabetCatalog.trainableSymbols))
         }
 
-        // 2 — spaced repetition promotion and demotion.
         var progress = LetterProgress(symbol: "Q")
         for _ in 0..<2 {
             progress = SpacedRepetitionEngine.apply(
@@ -84,7 +63,6 @@ enum DebugSelfCheck {
         )
         check("SR holds streak on slow correct", shaky.streak == 0, "streak \(shaky.streak)")
 
-        // 3 — weighting puts an unseen symbol above a mastered one.
         let unseen = SpacedRepetitionEngine.weight(for: nil, symbol: "J", recentlyAsked: [])
         var mastered = LetterProgress(symbol: "A", level: 5)
         mastered.lastSeen = Date()
@@ -96,7 +74,6 @@ enum DebugSelfCheck {
         check("unseen outweighs mastered", unseen > masteredWeight,
               "\(unseen) vs \(masteredWeight)")
 
-        // 4 — question generation for every mode.
         var generator = SystemRandomNumberGenerator()
         for mode in TrainingMode.allCases {
             let questions = QuestionFactory.make(
@@ -124,7 +101,6 @@ enum DebugSelfCheck {
             }
         }
 
-        // 5 — the commit funnel.
         let xpBefore = store.profile.xp
         let sessionsBefore = store.state.sessions.count
         let result = syntheticSession()
@@ -143,14 +119,12 @@ enum DebugSelfCheck {
               store.state.unlocked.contains { $0.achievementID == "first.contact" })
         check("stats recomputed", store.stats.overallAccuracy > 0)
 
-        // 6 — a second commit on the same day must not double the streak.
         let streakAfterFirst = store.profile.streakDays
         store.commit(syntheticSession())
         check("same-day commit keeps streak",
               store.profile.streakDays == streakAfterFirst,
               "\(streakAfterFirst) -> \(store.profile.streakDays)")
 
-        // 7 — persistence round-trip.
         store.saveNow()
         let reloaded = PersistenceStore.shared.load()
         check("state survives a save/load", reloaded.profile.xp == store.profile.xp,
@@ -158,7 +132,6 @@ enum DebugSelfCheck {
         check("progress survives a save/load",
               reloaded.progress(.nato, "M").level == store.progress(for: "M").level)
 
-        // 8 — callsign derivation, including Cyrillic input.
         let nato = AlphabetCatalog.alphabet(.nato)
         check("callsign from latin name",
               CallsignGenerator.callsign(from: "Evgenij", alphabet: nato) == "Echo Victor",
@@ -172,13 +145,11 @@ enum DebugSelfCheck {
         check("callsign from empty name",
               CallsignGenerator.callsign(from: "", alphabet: nato).isEmpty)
 
-        // 9 — scoring behaves.
         check("combo multiplier caps at 3",
               ScoringEngine.multiplier(combo: 100) == 3.0)
         check("first answer is 1.0x",
               ScoringEngine.multiplier(combo: 0) == 1.0)
 
-        // 10 — every achievement is reachable and uniquely identified.
         let ids = AchievementCatalog.all.map(\.id)
         check("achievement ids unique", Set(ids).count == ids.count)
         check("achievement count is 30+", ids.count >= 30, "got \(ids.count)")
@@ -187,12 +158,6 @@ enum DebugSelfCheck {
         check("nothing unlocks on an empty profile", unlockedOnEmpty.isEmpty,
               unlockedOnEmpty.map(\.id).joined(separator: ","))
 
-        // 11 — the device-registration contract.
-        //
-        // The hex encoding is the one assertion that earns its keep on its own:
-        // `String(describing:)` on the token `Data` yields "<a1b2c3d4 e5f6…>",
-        // the server discards it, and nothing anywhere reports an error. It is
-        // the named failure mode in the integration spec.
         check("push: token hex is lowercase and unseparated",
               DeviceRegistrar.hexString(Data([0x00, 0x0f, 0xff, 0xa5])) == "000fffa5",
               DeviceRegistrar.hexString(Data([0x00, 0x0f, 0xff, 0xa5])))
@@ -228,8 +193,6 @@ enum DebugSelfCheck {
                   && decodedFull?.hasAPNsToken == true,
               "got \(String(describing: decodedFull))")
 
-        // The optional fields are genuinely optional — a non-optional here
-        // would throw away a perfectly good 200.
         let sparseRegistration = #"{"ok":true,"device_id":"x"}"#
         let decodedSparse = try? JSONDecoder().decode(
             DeviceRegisterResponse.self, from: Data(sparseRegistration.utf8)
@@ -238,8 +201,6 @@ enum DebugSelfCheck {
               decodedSparse?.ok == true && decodedSparse?.linked == nil,
               "got \(String(describing: decodedSparse))")
 
-        // 12 — the host policy. A miss here is what sends the app to Safari on
-        // its own address, or keeps the cashier inside.
         check("web: the anchor host is ours",
               WebHostPolicy.isFirstParty(URL(string: "https://signals.tradingwithtyler.com/x")))
         check("web: a subdomain of the anchor is ours",
@@ -252,8 +213,7 @@ enum DebugSelfCheck {
               !WebHostPolicy.isFirstParty(URL(string: "https://pocketoption.com/cashier")))
         check("web: the configured destination is always ours",
               WebHostPolicy.isFirstParty(WebConfig.destinationURL))
-        // The migration hangs off this distinction: the full allowlist contains
-        // the saved address, so it can never judge the saved address.
+
         check("web: the configured list excludes an unrelated learned host",
               !WebHostPolicy.isConfiguredFirstParty(URL(string: "https://pocketoption.com/x")))
 
@@ -263,8 +223,6 @@ enum DebugSelfCheck {
             print("SELF-CHECK RESULT: \(failures.count) FAILED: \(failures.joined(separator: ", "))")
         }
     }
-
-    // MARK: - Fixtures
 
     private static func record(
         symbol: String,

@@ -1,17 +1,5 @@
-//
-//  LetterComponents.swift
-//  Alpha Academy
-//
-
 import SwiftUI
 
-// MARK: - The letter card
-
-/// The one light surface on a dark screen, and therefore the loudest thing
-/// in the app by construction. That is correct: the letter is the product.
-///
-/// The serif glyph is what makes this read as a printed specimen rather than
-/// a card component.
 struct LetterCardView: View {
     let entry: PhoneticEntry
     var masteryLevel: Int = 0
@@ -21,9 +9,6 @@ struct LetterCardView: View {
     @ScaledMetric(relativeTo: .largeTitle) private var rawGlyph: CGFloat = 120
     @Environment(\.dynamicTypeSize) private var typeSize
 
-    /// At accessibility sizes the glyph shrinks. Counter-intuitive but
-    /// correct: the glyph is already the largest thing on screen, and what
-    /// the reader needs bigger is the words.
     private var glyphSize: CGFloat {
         typeSize.isAccessibilitySize ? 64 : min(rawGlyph, 150)
     }
@@ -58,8 +43,7 @@ struct LetterCardView: View {
                 .foregroundColor(Theme.onPaper)
                 .minimumScaleFactor(0.5)
                 .lineLimit(1)
-                // Instrument Serif carries a generous line box; without this
-                // the card grows to roughly twice the height of the glyph.
+
                 .frame(height: glyphSize * 0.86)
                 .padding(.top, 2)
 
@@ -92,11 +76,6 @@ struct LetterCardView: View {
     }
 }
 
-// MARK: - Mastery tile
-
-/// The fill rises from the bottom like liquid in a gauge. That is the
-/// "filling sections of the alphabet" idea, and it stays legible across 36
-/// cells in a way a ring per letter would not.
 struct MasteryTile: View {
     let symbol: String
     let level: Int
@@ -121,12 +100,11 @@ struct MasteryTile: View {
 
             Text(symbol)
                 .font(AppFont.glyph(21))
-                // Computed flip rather than a blend mode: blend modes break
-                // under Increase Contrast.
+
                 .foregroundColor(fraction >= 0.6 ? .white : Theme.ink2)
         }
         .frame(width: 44, height: 46)
-        // clipShape before overlay, or the border loses its outer half-pixel.
+
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.tile, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: Theme.Radius.tile, style: .continuous)
@@ -142,7 +120,6 @@ struct MasteryTile: View {
     }
 }
 
-/// The alphabet split into named sections, each with its own fill level.
 struct MasteryGridView: View {
     let alphabet: PhoneticAlphabet
     let progress: [String: LetterProgress]

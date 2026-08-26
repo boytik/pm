@@ -1,8 +1,3 @@
-//
-//  ScenarioSet.swift
-//  Alpha Academy
-//
-
 import Foundation
 
 enum ScenarioCategory: String, Codable, CaseIterable, Identifiable, Hashable {
@@ -38,20 +33,18 @@ enum ScenarioCategory: String, Codable, CaseIterable, Identifiable, Hashable {
     }
 }
 
-/// A themed pool of realistic strings to spell out.
 struct ScenarioSet: Identifiable, Hashable {
     let id: String
     let category: ScenarioCategory
     let title: String
-    /// One line on what this is, shown on the scenario chip.
+
     let detail: String
-    /// The situation line shown above the string during a session.
+
     let contextLine: String
-    /// Hand-checked strings that are always valid.
+
     let samples: [String]
-    /// Generator patterns. `A` = letter, `#` = digit, `?` = alphanumeric.
-    /// Anything else is a literal.
+
     let patterns: [String]
-    /// 1…3. Longer, mixed strings score higher.
+
     let difficulty: Int
 }

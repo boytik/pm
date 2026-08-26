@@ -1,8 +1,3 @@
-//
-//  HomeView.swift
-//  Alpha Academy
-//
-
 import SwiftUI
 
 struct HomeView: View {
@@ -22,7 +17,7 @@ struct HomeView: View {
                 }
                 .padding(.horizontal, Theme.Space.l)
                 .padding(.top, Theme.Space.l)
-                // Clears the floating tab bar.
+
                 .padding(.bottom, Theme.tabBarClearance)
             }
             .background(Theme.bg.ignoresSafeArea())
@@ -38,7 +33,7 @@ struct HomeView: View {
             .sheet(isPresented: $showSettings) { SettingsView() }
             .onAppear {
                 #if DEBUG
-                // SIMCTL_CHILD_AA_OPEN_SETTINGS=1 opens the sheet on launch.
+
                 if ProcessInfo.processInfo.environment["AA_OPEN_SETTINGS"] == "1" {
                     showSettings = true
                 }
@@ -46,8 +41,6 @@ struct HomeView: View {
             }
         }
     }
-
-    // MARK: - Blocks
 
     private var rankHeader: some View {
         let profile = store.profile
@@ -61,9 +54,7 @@ struct HomeView: View {
                     .tracking(1.4)
                     .foregroundColor(Theme.ink)
                 Spacer()
-                // verbatim: SwiftUI's LocalizedStringKey interpolation runs
-                // Ints through a number formatter and inserts grouping
-                // separators, so "2340" renders as "2 340".
+
                 Text(verbatim: "\(profile.xp) XP")
                     .font(AppFont.mono(12, relativeTo: .caption))
                     .monospacedDigit()
@@ -156,8 +147,6 @@ struct HomeView: View {
 
     @ViewBuilder
     private var weakLetters: some View {
-        // Only symbols actually attempted — a list of things never seen is
-        // not "needs work", it is "not started".
         let weak = store.stats.weakestAttempted
         if !weak.isEmpty {
             VStack(alignment: .leading, spacing: Theme.Space.s) {

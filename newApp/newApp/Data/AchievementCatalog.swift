@@ -1,23 +1,7 @@
-//
-//  AchievementCatalog.swift
-//  Alpha Academy
-//
-//  Thirty declarations. Each returns (current, target) so the same line
-//  drives the unlock check and the progress bar on a locked badge.
-//
-//  Deliberately no coins, gems, chests or tiers — the badges are SF
-//  Symbols in the academy palette, and rank-ups are surfaced separately
-//  so XP is never awarded twice for the same thing.
-//
-
 import Foundation
 
 enum AchievementCatalog {
-
     static let all: [Achievement] = [
-
-        // MARK: Getting started
-
         Achievement(
             id: "first.contact",
             title: "First Contact",
@@ -54,8 +38,6 @@ enum AchievementCatalog {
             xpReward: 30,
             evaluate: { ($0.sessionsByMode[.study] ?? 0, 10) }
         ),
-
-        // MARK: Mastery
 
         Achievement(
             id: "half.chart",
@@ -112,8 +94,6 @@ enum AchievementCatalog {
             evaluate: { ($0.digitsCorrect, 50) }
         ),
 
-        // MARK: Accuracy
-
         Achievement(
             id: "perfect.ten",
             title: "Perfect Ten",
@@ -161,8 +141,6 @@ enum AchievementCatalog {
             xpReward: 100,
             evaluate: { ($0.sessionsCompleted, 50) }
         ),
-
-        // MARK: Encoding
 
         Achievement(
             id: "clean.encode",
@@ -228,8 +206,6 @@ enum AchievementCatalog {
             evaluate: { ($0.charactersEncoded, 1_000) }
         ),
 
-        // MARK: Listening
-
         Achievement(
             id: "ears.on",
             title: "Ears On",
@@ -257,8 +233,6 @@ enum AchievementCatalog {
             xpReward: 130,
             evaluate: { ($0.cleanDecodesNoReplay, 10) }
         ),
-
-        // MARK: Speed
 
         Achievement(
             id: "quick.draw",
@@ -305,8 +279,6 @@ enum AchievementCatalog {
             xpReward: 140,
             evaluate: { ($0.bestSpeedScore, 1_000) }
         ),
-
-        // MARK: Consistency
 
         Achievement(
             id: "streak.3",

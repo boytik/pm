@@ -1,8 +1,3 @@
-//
-//  DecodeByEarView.swift
-//  Alpha Academy
-//
-
 import SwiftUI
 
 struct DecodeByEarView: View {
@@ -27,9 +22,6 @@ struct DecodeByEarView: View {
                             .multilineTextAlignment(.center)
                     }
 
-                    // The play control sits above the field: focusing the
-                    // field first would put the keyboard over it while the
-                    // learner is still listening.
                     playControl(question)
 
                     field
@@ -42,8 +34,6 @@ struct DecodeByEarView: View {
                             engine.submitTranscription(input)
                         }
 
-                        // Without this the mode is unusable for deaf and
-                        // hard-of-hearing learners.
                         Button("Show the sequence") {
                             revealed = true
                         }
@@ -117,8 +107,6 @@ struct DecodeByEarView: View {
             .disabled(engine.feedback != nil)
     }
 
-    /// A per-character diff is the most instructive feedback in the app —
-    /// worth far more than a bare "Wrong".
     private func diff(expected: String) -> some View {
         let expectedChars = Array(expected.uppercased())
         let givenChars = Array(StringNormalizer.canonical(input))

@@ -1,18 +1,5 @@
-//
-//  TrainingRecordView.swift
-//  Alpha Academy
-//
-//  The page that becomes the shared PDF.
-//
-//  It is the light counterpart of the app, not a screenshot of it. In this
-//  design system `paper` is the printed artefact, so the exported record is
-//  the plate at full-page size. A dark PDF would also be miserable to print.
-//
-
 import SwiftUI
 
-/// Print-only extensions of the palette. Documented in DESIGN.md — these are
-/// the only colours that exist outside the on-screen system.
 enum PrintTheme {
     static let page = Color(hex: 0xF3F6FC)
     static let plate = Color(hex: 0xB6CCFB)
@@ -25,7 +12,6 @@ enum PrintTheme {
 }
 
 struct TrainingRecordView: View {
-
     struct Model {
         let callsign: String
         let name: String
@@ -50,7 +36,6 @@ struct TrainingRecordView: View {
 
     let model: Model
 
-    /// A4 at 72 dpi.
     static let pageSize = CGSize(width: 595, height: 842)
 
     var body: some View {
@@ -62,9 +47,7 @@ struct TrainingRecordView: View {
             mastery
             if !model.modeRows.isEmpty { modes }
             Spacer(minLength: 12)
-            // The printed sheet is also a cheat sheet. The real moment of
-            // use is mid-phone-call, so a record you can pin to a monitor
-            // is worth more than a page of white space.
+
             referenceStrip
             Spacer(minLength: 0)
             footer
@@ -73,8 +56,6 @@ struct TrainingRecordView: View {
         .frame(width: Self.pageSize.width, height: Self.pageSize.height)
         .background(PrintTheme.page)
     }
-
-    // MARK: - Header
 
     private var header: some View {
         HStack(alignment: .center, spacing: 14) {
@@ -113,8 +94,6 @@ struct TrainingRecordView: View {
         .padding(.bottom, 16)
     }
 
-    // MARK: - Identity
-
     private var identity: some View {
         HStack(spacing: 16) {
             AvatarView(
@@ -151,8 +130,6 @@ struct TrainingRecordView: View {
         .padding(.vertical, 20)
     }
 
-    // MARK: - Stats
-
     private var stats: some View {
         HStack(spacing: 10) {
             statCell("Mastery", "\(model.masteryPercent)%")
@@ -188,16 +165,10 @@ struct TrainingRecordView: View {
         )
     }
 
-    // MARK: - Mastery grid
-
-    /// The signature of the whole document: 36 cells filling from the bottom.
     private var mastery: some View {
         VStack(alignment: .leading, spacing: 10) {
             sectionLabel("Alphabet mastery")
 
-            // 13 columns lays the 26 letters out as exactly two rows, with
-            // the ten digits on a third. 12 would wrap Y and Z onto the
-            // digit row.
             LazyVGrid(
                 columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 13),
                 spacing: 6
@@ -224,8 +195,6 @@ struct TrainingRecordView: View {
         }
         .padding(.bottom, 24)
     }
-
-    // MARK: - Per-mode accuracy
 
     private var modes: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -255,8 +224,6 @@ struct TrainingRecordView: View {
             }
         }
     }
-
-    // MARK: - Reference strip
 
     private var referenceStrip: some View {
         let letters = model.entries.filter { $0.kind == .letter }
@@ -301,8 +268,6 @@ struct TrainingRecordView: View {
             Rectangle().fill(PrintTheme.rule).frame(height: 1)
         }
     }
-
-    // MARK: - Footer
 
     private var footer: some View {
         VStack(alignment: .leading, spacing: 8) {

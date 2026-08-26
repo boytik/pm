@@ -1,11 +1,3 @@
-//
-//  SessionContainerView.swift
-//  Alpha Academy
-//
-//  One cover, two stages. The summary renders inside the same cover so
-//  the tab bar never flashes between the last answer and the debrief.
-//
-
 import SwiftUI
 
 struct SessionContainerView: View {
@@ -20,10 +12,6 @@ struct SessionContainerView: View {
     @State private var showExitConfirm = false
     @State private var backgroundedAt: Date?
 
-    /// The engine is built once, from a snapshot taken at presentation
-    /// time. The caller passes the alphabet and progress explicitly rather
-    /// than reaching for the environment, because @EnvironmentObject is not
-    /// available inside init.
     init(
         mode: TrainingMode,
         alphabet: PhoneticAlphabet,
@@ -51,8 +39,7 @@ struct SessionContainerView: View {
                 if engine.stage == .running {
                     SessionHUD(engine: engine) { attemptExit() }
                     modeView
-                        // Without this the VStack shrinks to fit and the
-                        // whole session floats in the middle of the screen.
+
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 } else {
                     SessionSummaryView(
@@ -71,9 +58,6 @@ struct SessionContainerView: View {
         .onDisappear { SpeechService.shared.stop() }
         .confirmationDialog("End this session?", isPresented: $showExitConfirm) {
             Button("End session", role: .destructive) {
-                // A partial result still carries real practice data —
-                // throwing it away because someone tapped close is worse
-                // than recording a short session.
                 engine.finish()
             }
             Button("Keep going", role: .cancel) {}
@@ -115,8 +99,6 @@ struct SessionContainerView: View {
     }
 }
 
-// MARK: - HUD
-
 struct SessionHUD: View {
     @ObservedObject var engine: SessionEngine
     let onClose: () -> Void
@@ -150,9 +132,6 @@ struct SessionHUD: View {
 
                 Group {
                     if let remaining = engine.remainingSeconds {
-                        // The timer rides its own amber chip, as in the
-                        // reference. It is the loudest small element on the
-                        // screen because running out of time is the point.
                         Text(timeString(remaining))
                             .font(AppFont.timer)
                             .monospacedDigit()
@@ -160,14 +139,13 @@ struct SessionHUD: View {
                             .padding(.horizontal, 10)
                             .frame(height: 26)
                             .background(Capsule().fill(timerFill(remaining)))
-                            // Never let VoiceOver re-announce every tick.
+
                             .accessibilityHidden(true)
                     } else {
                         Color.clear
                     }
                 }
-                // Height matters: an unconstrained Color.clear is infinitely
-                // flexible vertically and stretches the whole HUD row.
+
                 .frame(width: 62, height: 44)
             }
 
@@ -186,8 +164,6 @@ struct SessionHUD: View {
         return String(format: "%d:%02d", total / 60, total % 60)
     }
 
-    /// The chip warms toward the end of the run. Colour is the only signal —
-    /// nothing pulses, flashes, or grows.
     private func timerFill(_ remaining: Double) -> Color {
         if remaining < 5 { return Theme.negative }
         if remaining < 10 { return Theme.amber }

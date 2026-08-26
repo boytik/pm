@@ -1,11 +1,3 @@
-//
-//  SessionSummaryView.swift
-//  Alpha Academy
-//
-//  Styled as a flight-log debrief, not a reward screen. No confetti, no
-//  trophy animation, no sound.
-//
-
 import SwiftUI
 
 struct SessionSummaryView: View {

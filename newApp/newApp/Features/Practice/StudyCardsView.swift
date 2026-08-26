@@ -1,8 +1,3 @@
-//
-//  StudyCardsView.swift
-//  Alpha Academy
-//
-
 import SwiftUI
 
 struct StudyCardsView: View {

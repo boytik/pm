@@ -1,11 +1,3 @@
-//
-//  ProgressDashboardView.swift
-//  Alpha Academy
-//
-//  Named ProgressDashboardView, not ProgressView — the latter shadows
-//  SwiftUI's own spinner type and produces baffling errors everywhere.
-//
-
 import Charts
 import SwiftUI
 
@@ -25,7 +17,7 @@ struct ProgressDashboardView: View {
                 }
                 .padding(.horizontal, Theme.Space.l)
                 .padding(.top, Theme.Space.l)
-                // Clears the floating tab bar.
+
                 .padding(.bottom, Theme.tabBarClearance)
             }
             .background(Theme.bg.ignoresSafeArea())
@@ -35,8 +27,6 @@ struct ProgressDashboardView: View {
             }
         }
     }
-
-    // MARK: - Blocks
 
     private var overview: some View {
         HStack(spacing: Theme.Space.l) {
@@ -155,8 +145,6 @@ struct ProgressDashboardView: View {
     }
 }
 
-// MARK: - Achievements
-
 struct AchievementsView: View {
     @EnvironmentObject private var store: AppStore
 
@@ -209,8 +197,6 @@ struct AchievementsView: View {
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
 
-            // Locked badges always show their criterion — a "???" is a game
-            // trope and helps nobody learn.
             Text(achievement.detail)
                 .font(.caption2)
                 .foregroundColor(Theme.ink2)

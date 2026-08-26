@@ -1,24 +1,13 @@
-//
-//  ReportExporter.swift
-//  Alpha Academy
-//
-//  Renders TrainingRecordView into a real PDF (vector text, selectable and
-//  printable) rather than a screenshot of the app.
-//
-
 import CoreGraphics
 import SwiftUI
 import UIKit
 
 enum ReportExporter {
-
     enum ExportError: Error {
         case renderFailed
         case writeFailed
     }
 
-    /// Builds the page model from the store, so the view stays a pure
-    /// presentation of values it is handed.
     @MainActor
     static func model(from store: AppStore) -> TrainingRecordView.Model {
         let alphabet = store.activeAlphabet
@@ -57,14 +46,11 @@ enum ReportExporter {
         )
     }
 
-    /// Writes the PDF to a temp file and returns its URL, ready for
-    /// `ShareLink`. The filename is what the recipient sees, so it carries
-    /// the callsign.
     @MainActor
     static func exportPDF(model: TrainingRecordView.Model) throws -> URL {
         let view = TrainingRecordView(model: model)
         let renderer = ImageRenderer(content: view)
-        // Vector text at 1:1. Scaling here would rasterise.
+
         renderer.scale = 1
 
         let pageSize = TrainingRecordView.pageSize
@@ -83,9 +69,7 @@ enum ReportExporter {
         var didRender = false
         renderer.render { _, renderInContext in
             context.beginPDFPage(nil)
-            // No manual flip here. ImageRenderer's callback already applies
-            // the top-left-origin transform; adding the usual CoreGraphics
-            // bottom-up flip cancels it and the page comes out mirrored.
+
             renderInContext(context)
             context.endPDFPage()
             didRender = true

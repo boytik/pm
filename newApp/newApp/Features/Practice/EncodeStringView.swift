@@ -1,10 +1,3 @@
-//
-//  EncodeStringView.swift
-//  Alpha Academy
-//
-//  The core-skill screen: spell a real string, in order.
-//
-
 import SwiftUI
 
 struct EncodeStringView: View {
@@ -40,8 +33,6 @@ struct EncodeStringView: View {
         }
     }
 
-    // MARK: - Pieces
-
     private func header(_ question: Question) -> some View {
         VStack(spacing: Theme.Space.xs) {
             if let subtitle = question.promptSubtitle {
@@ -53,9 +44,6 @@ struct EncodeStringView: View {
         }
     }
 
-    /// Each character is its own view so the cursor can underline exactly
-    /// one of them. A single Text with an AttributedString would lose the
-    /// per-glyph geometry.
     private func target(_ question: Question) -> some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
@@ -77,8 +65,7 @@ struct EncodeStringView: View {
             }
             .padding(.vertical, Theme.Space.m)
             .cardSurface()
-            // Keeping the cursor on screen is the thing that breaks first
-            // on long strings like an email address.
+
             .onChange(of: position) { newValue in
                 withAnimation { proxy.scrollTo(newValue, anchor: .center) }
             }

@@ -1,21 +1,7 @@
-//
-//  LegacyFunnelCleanup.swift
-//  Alpha Academy
-//
-//  An install upgrading from the old pull funnel may still hold local
-//  notifications it raised, identified `push.<delivery_id>`. Nothing schedules
-//  them any more and nothing else would ever remove them.
-//
-//  Removal is scoped to that prefix. `removeAllPendingNotificationRequests()`
-//  would also wipe `drill.0…6`, which live in the same centre and are still
-//  very much in use.
-//
-
 import Foundation
 import UserNotifications
 
 enum LegacyFunnelCleanup {
-
     private static let legacyPrefix = "push."
 
     static func runOnce() {

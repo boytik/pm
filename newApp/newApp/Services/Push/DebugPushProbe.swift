@@ -1,22 +1,8 @@
-//
-//  DebugPushProbe.swift
-//  Alpha Academy
-//
-//  `AA_PUSH_PROBE=1` — prints everything the push integration depends on, in
-//  one place, without waiting for a real push:
-//
-//    SIMCTL_CHILD_AA_PUSH_PROBE=1 xcrun simctl launch --console-pty booted com.rainerhansen.globoton
-//
-//  `AA_PUSH_PROBE=2` additionally performs a live registration round trip and
-//  prints what the server said. Compiled out of release entirely.
-//
-
 #if DEBUG
 import Foundation
 import UIKit
 
 enum DebugPushProbe {
-
     static var isRequested: Bool {
         let raw = ProcessInfo.processInfo.environment["AA_PUSH_PROBE"]
         return raw == "1" || raw == "2"
@@ -45,9 +31,6 @@ enum DebugPushProbe {
                 print("      \(key) = \(conversion[key] ?? "")")
             }
         } else {
-            // Two very different states that both read as "no data": one is a
-            // launch after the first, where the callback simply never fires
-            // again, the other is a real failure.
             print("  conversion   : none — \(AttributionStore.lastFailure ?? "callback has not fired on this install")")
         }
         print("  link hosts   : \(AttributionLink.hostSuffixes.joined(separator: ", "))")
@@ -57,8 +40,7 @@ enum DebugPushProbe {
         print("PROBE ────────────────────────────────────────────")
 
         guard ProcessInfo.processInfo.environment["AA_PUSH_PROBE"] == "2" else { return }
-        // Deliberately bypasses the throttle: this is a diagnostic the operator
-        // asked for, not a scheduled call.
+
         DeviceRegistrationStore.lastRegisterAt = nil
         await DeviceRegistrar.registerLaunch(reason: .launch)
     }

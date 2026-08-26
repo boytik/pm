@@ -1,18 +1,6 @@
-//
-//  QuestionFactory.swift
-//  Alpha Academy
-//
-//  Question generation, deterministic given an injected generator.
-//
-//  Distractor quality is the whole game here: random distractors make a
-//  quiz guessable and kill its teaching value, so they are drawn from the
-//  same alphabet and biased towards confusable words.
-//
-
 import Foundation
 
 enum QuestionFactory {
-
     static func make(
         mode: TrainingMode,
         alphabet: PhoneticAlphabet,
@@ -37,7 +25,7 @@ enum QuestionFactory {
             )
 
         case .speed:
-            // Speed Mode loops, so it only needs a deep enough pool.
+
             return quizQuestions(
                 count: 60, alphabet: alphabet, progress: progress,
                 letterToWord: true, using: &generator
@@ -61,8 +49,6 @@ enum QuestionFactory {
         }
     }
 
-    // MARK: - Flashcards
-
     private static func flashcard(_ entry: PhoneticEntry) -> Question {
         Question(
             kind: .flashcard,
@@ -71,8 +57,6 @@ enum QuestionFactory {
             expected: [entry.word]
         )
     }
-
-    // MARK: - Multiple choice
 
     static func quizQuestions(
         count: Int,
@@ -138,8 +122,6 @@ enum QuestionFactory {
         )
     }
 
-    /// Prefer words that share a first letter or a syllable count — the
-    /// difference between a real test and a giveaway.
     private static func distractorWords(
         for entry: PhoneticEntry,
         alphabet: PhoneticAlphabet,
@@ -167,8 +149,6 @@ enum QuestionFactory {
         return Array(picked.prefix(3))
     }
 
-    // MARK: - Encode
-
     static func encodeQuestion(
         alphabet: PhoneticAlphabet,
         progress: [String: LetterProgress],
@@ -177,8 +157,6 @@ enum QuestionFactory {
     ) -> Question? {
         let scenario = set ?? ScenarioCatalog.all.randomElement(using: &generator) ?? ScenarioCatalog.flight
 
-        // Best of five draws by how much practice the string actually
-        // delivers, so weak letters end up inside real strings.
         var best: (string: String, weight: Double)?
         for _ in 0..<5 {
             let candidate = ScenarioCatalog.string(from: scenario, using: &generator)
@@ -214,8 +192,6 @@ enum QuestionFactory {
         )
     }
 
-    // MARK: - Decode
-
     static func decodeQuestion(
         alphabet: PhoneticAlphabet,
         progress: [String: LetterProgress],
@@ -238,9 +214,6 @@ enum QuestionFactory {
         )
     }
 
-    // MARK: - Daily drill
-
-    /// Weak letters, a few digits, and one real string — sized to the goal.
     static func dailyDrill(
         alphabet: PhoneticAlphabet,
         progress: [String: LetterProgress],

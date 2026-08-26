@@ -1,15 +1,5 @@
-//
-//  SessionEngine.swift
-//  Alpha Academy
-//
-//  One engine behind all five modes, so scoring, XP and progress feedback
-//  cannot drift apart between them.
-//
-
 import Combine
 import Foundation
-
-// MARK: - Question
 
 enum QuestionKind {
     case flashcard
@@ -22,18 +12,18 @@ enum QuestionKind {
 struct Question: Identifiable {
     let id = UUID()
     let kind: QuestionKind
-    /// The symbols this question exercises — drives the progress feedback.
+
     let targetSymbols: [String]
-    /// "K", "Kilo", "BK7291", or empty for decode.
+
     let promptText: String
     var promptSubtitle: String?
-    /// Canonical answer tokens, in order.
+
     let expected: [String]
-    /// Pre-shuffled multiple-choice options.
+
     var options: [String] = []
-    /// Per-position option pools, for Encode.
+
     var sequenceOptions: [[String]] = []
-    /// The entries to speak, for Decode.
+
     var speechEntries: [PhoneticEntry] = []
     var scenarioCategory: ScenarioCategory?
 }
@@ -43,10 +33,7 @@ enum SessionStage: Equatable {
     case summary
 }
 
-// MARK: - Scoring
-
 enum ScoringEngine {
-
     static func basePoints(_ kind: QuestionKind) -> Int {
         switch kind {
         case .flashcard:     return 0
@@ -59,13 +46,11 @@ enum ScoringEngine {
 
     static func speedBonus(responseMs: Int, mode: TrainingMode) -> Int {
         guard mode == .speed else { return 0 }
-        return max(0, 10 - responseMs / 500)      // 10 under 0.5 s, 0 at 5 s
+        return max(0, 10 - responseMs / 500)
     }
 
-    /// Read before the combo is incremented, so the first correct answer
-    /// is a plain 1.0×.
     static func multiplier(combo: Int) -> Double {
-        min(1.0 + 0.10 * Double(combo), 3.0)      // caps at combo 20
+        min(1.0 + 0.10 * Double(combo), 3.0)
     }
 
     static func itemScore(
@@ -78,8 +63,6 @@ enum ScoringEngine {
         return Int((base * multiplier(combo: combo)).rounded())
     }
 
-    /// Accuracy bonuses need a real sample, or a one-question perfect
-    /// session farms the top bonus.
     static func xp(for result: SessionResult) -> Int {
         var xp = result.correct * result.mode.baseXP
 
@@ -99,10 +82,7 @@ enum ScoringEngine {
     }
 }
 
-// MARK: - Engine
-
 final class SessionEngine: ObservableObject {
-
     @Published private(set) var stage: SessionStage = .running
     @Published private(set) var questions: [Question] = []
     @Published private(set) var index = 0
@@ -110,7 +90,7 @@ final class SessionEngine: ObservableObject {
     @Published private(set) var bestCombo = 0
     @Published private(set) var score = 0
     @Published private(set) var correctCount = 0
-    /// Answers chosen so far in an Encode question.
+
     @Published private(set) var sequenceProgress: [String] = []
     @Published private(set) var feedback: Feedback?
     @Published private(set) var remainingSeconds: Double?
@@ -132,8 +112,6 @@ final class SessionEngine: ObservableObject {
     private var currentStringClean = true
     private var scenarioCategory: ScenarioCategory?
 
-    /// Speed Mode works from a deadline, not an accumulated tick count:
-    /// ticks drift and stop while backgrounded, a deadline stays correct.
     private var deadline: Date?
 
     var currentQuestion: Question? {
@@ -166,8 +144,6 @@ final class SessionEngine: ObservableObject {
         questionShownAt = Date()
     }
 
-    // MARK: - Timer
-
     func tick(now: Date = Date()) {
         guard let deadline else { return }
         let remaining = deadline.timeIntervalSince(now)
@@ -175,16 +151,11 @@ final class SessionEngine: ObservableObject {
         if remaining <= 0, stage == .running { finish() }
     }
 
-    /// Extend the deadline by however long the app was away, so a phone
-    /// call does not cost the learner their run.
     func extendDeadline(by interval: TimeInterval) {
         guard let deadline else { return }
         self.deadline = deadline.addingTimeInterval(interval)
     }
 
-    // MARK: - Answering
-
-    /// Multiple choice and flashcards.
     func submit(option: String) {
         guard let question = currentQuestion, feedback == nil else { return }
         let responseMs = elapsedMs()
@@ -199,8 +170,6 @@ final class SessionEngine: ObservableObject {
         feedback = Feedback(isCorrect: isCorrect, correctAnswer: question.expected.first ?? "")
     }
 
-    /// Encode: one position at a time. A wrong pick reveals the answer and
-    /// still advances — trapping the learner teaches nothing.
     func submitSequence(option: String) {
         guard let question = currentQuestion, feedback == nil else { return }
         let position = sequenceProgress.count
@@ -229,7 +198,6 @@ final class SessionEngine: ObservableObject {
         }
     }
 
-    /// Decode: compare the typed string against the original.
     func submitTranscription(_ text: String) {
         guard let question = currentQuestion, feedback == nil else { return }
         let responseMs = elapsedMs()
@@ -237,8 +205,6 @@ final class SessionEngine: ObservableObject {
         let given = StringNormalizer.canonical(text)
         let isCorrect = expected == given
 
-        // Attribute per-symbol credit only where positions line up. Naive
-        // alignment is fine here; edit distance would be over-engineering.
         if expected.count == given.count {
             for (index, symbol) in question.targetSymbols.enumerated() {
                 let expectedChars = Array(expected)
@@ -276,8 +242,6 @@ final class SessionEngine: ObservableObject {
         replayCount += 1
     }
 
-    /// Clears feedback without moving to the next question — used by Encode,
-    /// which stays on the same string while stepping through its characters.
     func clearFeedback() {
         feedback = nil
         questionShownAt = Date()
@@ -290,7 +254,6 @@ final class SessionEngine: ObservableObject {
         questionShownAt = Date()
 
         if mode == .speed {
-            // Speed Mode never runs out of questions — it runs out of time.
             index = (index + 1) % max(1, questions.count)
             return
         }
@@ -304,8 +267,6 @@ final class SessionEngine: ObservableObject {
         stage = .summary
         Haptics.shared.sessionComplete()
     }
-
-    // MARK: - Result
 
     func makeResult() -> SessionResult {
         var result = SessionResult(
@@ -331,10 +292,7 @@ final class SessionEngine: ObservableObject {
         mode == .decode || mode == .encode ? max(records.count, 0) : records.count
     }
 
-    // MARK: - Internals
-
     private func elapsedMs() -> Int {
-        // Clamped so a backgrounded app cannot record a four-hour answer.
         let raw = Int(Date().timeIntervalSince(questionShownAt) * 1_000)
         return max(0, min(raw, 30_000))
     }
@@ -370,8 +328,6 @@ final class SessionEngine: ObservableObject {
         )
     }
 }
-
-// MARK: - Normalisation
 
 enum StringNormalizer {
     static func canonical(_ string: String) -> String {

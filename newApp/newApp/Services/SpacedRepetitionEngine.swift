@@ -1,28 +1,11 @@
-//
-//  SpacedRepetitionEngine.swift
-//  Alpha Academy
-//
-//  Two promotion rules and one weight formula. Kept small enough to
-//  reason about in your head, because a scheduler you cannot debug is
-//  worse than a simple one.
-//
-
 import Foundation
 
 enum SpacedRepetitionEngine {
-
-    /// How long a symbol rests at each level before it is due again.
     static let intervalHours: [Double] = [0, 4, 24, 72, 168, 336]
 
-    /// Consecutive good answers needed to leave each level.
-    /// Index 5 is unreachable on purpose — level 5 is the top.
     static let requiredStreak: [Int] = [2, 2, 3, 3, 4, 99]
 
-    /// A correct answer this slow means the recall was not consolidated,
-    /// so it does not advance the streak.
     static let shakyResponseMs = 6_000
-
-    // MARK: - Applying an answer
 
     static func apply(
         record: AnswerRecord,
@@ -40,7 +23,6 @@ enum SpacedRepetitionEngine {
             p.lastAnswerWasWrong = false
 
             if record.responseMs > shakyResponseMs {
-                // Correct but shaky: credit the answer, hold the streak.
             } else {
                 p.streak += 1
                 let needed = requiredStreak[min(p.level, requiredStreak.count - 1)]
@@ -60,8 +42,6 @@ enum SpacedRepetitionEngine {
         return p
     }
 
-    // MARK: - Due state
-
     static func isDue(_ progress: LetterProgress?, now: Date = Date()) -> Bool {
         guard let progress, let lastSeen = progress.lastSeen else { return true }
         let interval = intervalHours[min(progress.level, intervalHours.count - 1)] * 3_600
@@ -76,29 +56,18 @@ enum SpacedRepetitionEngine {
         symbols.filter { isDue(map[$0], now: now) }.count
     }
 
-    // MARK: - Selection weight
-
-    /// Higher means "ask this sooner".
-    ///
-    /// Worked example: an unseen symbol scores 300. A level-0 symbol with
-    /// 4 wrong out of 5, last seen two days ago, scores 100 × 3.0 × 2.0 =
-    /// 600. A mastered symbol seen yesterday scores 9. So the worst symbol
-    /// is roughly 67× more likely than the best one — weak letters clearly
-    /// dominate without the session turning into a single-letter grind.
     static func weight(
         for progress: LetterProgress?,
         symbol: String,
         recentlyAsked: [String],
         now: Date = Date()
     ) -> Double {
-        // A hard block on the last three keeps the rotation moving even
-        // when one symbol is far and away the weakest.
         if recentlyAsked.suffix(3).contains(symbol) { return 0 }
 
         guard let progress, let lastSeen = progress.lastSeen else { return 300 }
 
         let level = min(progress.level, intervalHours.count - 1)
-        let base = 100.0 * pow(0.62, Double(level))          // 100, 62, 38, 24, 15, 9
+        let base = 100.0 * pow(0.62, Double(level))
 
         let interval = intervalHours[level] * 3_600
         let dueBoost: Double
@@ -107,22 +76,18 @@ enum SpacedRepetitionEngine {
         } else {
             let due = lastSeen.addingTimeInterval(interval)
             let overdueRatio = max(0, now.timeIntervalSince(due)) / interval
-            dueBoost = 1.0 + min(overdueRatio, 2.0)          // 1.0 … 3.0
+            dueBoost = 1.0 + min(overdueRatio, 2.0)
         }
 
-        let errorBoost = 1.0 + min(1.0, progress.errorRate * 1.5)   // 1.0 … 2.0
+        let errorBoost = 1.0 + min(1.0, progress.errorRate * 1.5)
 
         var w = base * dueBoost * errorBoost
 
-        // Asked seconds ago — almost certainly still in short-term memory.
         if now.timeIntervalSince(lastSeen) < 60 { w *= 0.15 }
 
         return max(w, 1.0)
     }
 
-    // MARK: - Picking symbols
-
-    /// Weighted draw without replacement.
     static func selectSymbols(
         count: Int,
         from symbols: [String],
@@ -139,7 +104,6 @@ enum SpacedRepetitionEngine {
             }
             let total = weights.reduce(0, +)
             guard total > 0 else {
-                // Everything is blocked by recency — fall back to random.
                 if let symbol = pool.randomElement(using: &generator),
                    let index = pool.firstIndex(of: symbol) {
                     picked.append(symbol)
@@ -162,7 +126,6 @@ enum SpacedRepetitionEngine {
         return picked
     }
 
-    /// The weakest symbols, for the Home screen and the daily drill.
     static func weakest(
         count: Int,
         in map: [String: LetterProgress],

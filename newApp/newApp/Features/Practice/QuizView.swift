@@ -1,12 +1,5 @@
-//
-//  QuizView.swift
-//  Alpha Academy
-//
-
 import SwiftUI
 
-/// Answer options live in a fixed block at the bottom so they do not shift
-/// between questions — a moving target makes thumbs miss.
 struct QuizView: View {
     @ObservedObject var engine: SessionEngine
     @EnvironmentObject private var store: AppStore
@@ -19,8 +12,6 @@ struct QuizView: View {
     private var question: Question? { engine.currentQuestion }
 
     var body: some View {
-        // Reference order: readout card near the top, hero below it, actions
-        // pinned to the bottom where the thumb is.
         VStack(spacing: Theme.Space.block) {
             if engine.mode == .speed {
                 ComboMeter(combo: engine.combo, score: engine.score)
@@ -48,9 +39,7 @@ struct QuizView: View {
             if !feedback.isCorrect, !reduceMotion {
                 withAnimation(.linear(duration: 0.24)) { shakeTrigger += 1 }
             }
-            // Wrong answers hold longer so the revealed word is readable.
-            // Speed Mode is the one place where waiting is worse than not
-            // learning, so it barely pauses at all.
+
             let delay: Double = engine.mode == .speed
                 ? 0.2
                 : (feedback.isCorrect ? 0.65 : 1.2)
@@ -60,11 +49,6 @@ struct QuizView: View {
         }
     }
 
-    // MARK: - Prompt
-
-    /// The prompt sits on the one light surface, exactly as the letter card
-    /// does. Word-to-letter prompts are words, not glyphs, so they stay on
-    /// the dark field — the plate is reserved for letters.
     @ViewBuilder
     private func prompt(_ question: Question) -> some View {
         VStack(spacing: Theme.Space.s) {
@@ -85,8 +69,7 @@ struct QuizView: View {
                 Text(question.promptText)
                     .font(AppFont.glyph(size))
                     .foregroundColor(Theme.onPaper)
-                    // Instrument Serif carries a generous line box; without
-                    // this the plate grows to twice the height of the glyph.
+
                     .frame(height: size * 0.86)
             }
         }
@@ -105,8 +88,6 @@ struct QuizView: View {
             }
         }
     }
-
-    // MARK: - Options
 
     private var columns: [GridItem] {
         typeSize.isAccessibilitySize
@@ -134,8 +115,6 @@ struct QuizView: View {
         return feedback.isCorrect ? .disabled : .wrong
     }
 
-    // MARK: - Speed timer
-
     private func startTimerIfNeeded() {
         guard engine.mode == .speed else { return }
         timer?.invalidate()
@@ -145,14 +124,11 @@ struct QuizView: View {
     }
 }
 
-// MARK: - Answer option
-
 enum AnswerState {
     case idle
     case correct
     case wrong
-    /// "This was the answer" — distinguished by a dash pattern rather than
-    /// a new hue, which keeps the palette small.
+
     case revealedCorrect
     case disabled
 }
@@ -252,8 +228,6 @@ struct AnswerOptionButton: View {
     }
 }
 
-// MARK: - Combo meter
-
 struct ComboMeter: View {
     let combo: Int
     let score: Int
@@ -290,9 +264,6 @@ struct ComboMeter: View {
     }
 }
 
-// MARK: - Shake
-
-/// Amplitude 6pt: felt, but not comic. 12pt+ reads as a game.
 struct ShakeEffect: GeometryEffect {
     var travel: CGFloat = 6
     var shakes: CGFloat = 3

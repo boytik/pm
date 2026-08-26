@@ -1,11 +1,3 @@
-//
-//  LearnView.swift
-//  Alpha Academy
-//
-//  Learn is a browser; Practice is a session runner. This tab pushes, it
-//  never presents a session.
-//
-
 import SwiftUI
 
 struct LearnView: View {
@@ -27,7 +19,7 @@ struct LearnView: View {
                 }
                 .padding(.horizontal, Theme.Space.l)
                 .padding(.top, Theme.Space.l)
-                // Clears the floating tab bar.
+
                 .padding(.bottom, Theme.tabBarClearance)
             }
             .background(Theme.bg.ignoresSafeArea())
