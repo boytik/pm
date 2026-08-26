@@ -149,9 +149,14 @@ workflows:
           # That command has been seen to print its failure in red and still exit 0,
           # which is how a green step produced an archive with no profile and an error
           # about Push Notifications three steps later. Assert on the result instead.
-          PROFILES="$HOME/Library/MobileDevice/Provisioning Profiles"
-          ls -la "$PROFILES" || true
-          test -n "$(ls -A "$PROFILES" 2>/dev/null)" || {
+          # Both locations are searched on purpose: Xcode 16 moved the store from
+          # ~/Library/MobileDevice to ~/Library/Developer/Xcode/UserData, and checking
+          # only the old one fails a build whose signing worked perfectly.
+          COUNT=$(find "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles" \
+                       "$HOME/Library/MobileDevice/Provisioning Profiles" \
+                       -name '*.mobileprovision' 2>/dev/null | wc -l | tr -d ' ')
+          echo "installed provisioning profiles: $COUNT"
+          test "$COUNT" -gt 0 || {
             echo "no provisioning profile was installed — signing did not happen"
             exit 1
           }
