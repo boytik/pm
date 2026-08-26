@@ -107,9 +107,6 @@ workflows:
       app_store_connect: alpha-academy-asc
     environment:
       <<: *env_ios
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.jorgspan.alphaacademy
     cache:
       <<: *cache_spm
     triggering:
@@ -120,8 +117,19 @@ workflows:
           include: true
       cancel_previous_builds: false
     scripts:
-      - name: Set up code signing
-        script: xcode-project use-profiles
+      # Deliberately not `environment.ios_signing`. That block only *fetches* what
+      # already exists in the developer portal, runs before any script, and fails the
+      # whole build with "No matching profiles found" on an app id that has never been
+      # signed. `--create` registers the bundle id, issues the distribution certificate
+      # and builds the profile when they are missing, and is a no-op once they are not.
+      - name: Fetch or create the signing files
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles
 
       # CFBundleVersion is generated from CURRENT_PROJECT_VERSION
       # (GENERATE_INFOPLIST_FILE is YES), so the number is passed to the archive
