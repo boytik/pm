@@ -41,6 +41,17 @@ enum DeviceRegistrar {
     }()
 
     static func registerLaunch(reason: Reason) async {
+        // App Review, 03.09.2026: "the request must appear before any data that could be
+        // used to track the user is collected". This body carries `appsflyer_id` — an
+        // identifier minted by a third-party attribution vendor — so the launch call waits
+        // for the ATT prompt to be answered. `settle` returns at once once it is, and the
+        // APNs token has its own call site that this does not delay.
+        if !TrackingAuthorization.isResolved {
+            log("\(reason.rawValue) held until the ATT prompt is answered — "
+                + "body carries appsflyer_id")
+            await TrackingAuthorization.settle()
+        }
+
         guard let deviceID = DeviceIdentity.current() else {
             log("\(reason.rawValue) skipped — no device_id (keychain unreadable)")
             return
@@ -120,7 +131,12 @@ enum DeviceRegistrar {
         put("os_version", UIDevice.current.systemVersion)
 
         put("locale", Locale.current.identifier.replacingOccurrences(of: "_", with: "-"))
-        put("appsflyer_id", AppsFlyerService.installUID)
+        // Belt and braces for the wait above: `settle` is bounded, so an install where the
+        // prompt is never answered would otherwise send the vendor id anyway once the
+        // timeout lapsed. A later registration carries it, once there is an answer.
+        if TrackingAuthorization.isResolved {
+            put("appsflyer_id", AppsFlyerService.installUID)
+        }
         put("idfv", UIDevice.current.identifierForVendor?.uuidString)
 
         return body

@@ -51,6 +51,8 @@ struct RootView: View {
                 #if DEBUG
                 print("WEB route: WEB (decided earlier) → \(url.absoluteString)")
                 #endif
+
+                await TrackingAuthorization.requestIfNeeded()
                 return
             }
 

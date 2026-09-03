@@ -34,6 +34,7 @@ struct newAppApp: App {
             switch phase {
             case .active:
 
+                Task { await TrackingAuthorization.requestIfNeeded() }
                 Task { await DeviceRegistrar.registerLaunch(reason: .foreground) }
             default:
                 break

@@ -230,6 +230,72 @@ Layout: `Services/Analytics/` — `AnalyticsConfig`, `AppsFlyerService`,
   became first-party (it would have to appear inside a shell load's redirect
   chain) the link would open inside the shell, unenriched.
 
+### The ATT prompt (App Store reject, 03.09.2026)
+
+The app was rejected because the reviewer, on an iPad, never saw the tracking
+prompt. The prompt was implemented and does appear — but *whether* it appeared
+was a race the app could lose silently, and losing it once lost it forever.
+
+`ATTrackingManager.requestTrackingAuthorization()` draws nothing while the app
+is not the active foreground app. `TrackingAuthorization` waited 5s for
+`applicationState == .active`, and on timeout **returned without asking and
+never asked again for the lifetime of the install** — `RootView.task` simply
+carried on to the trainer. Reproduced on an iPad Pro 11" simulator:
+`ATT: app never became active` followed by `WEB route: NATIVE → main`, no
+prompt, ever. Anything that keeps the app non-active through launch does it —
+a system alert already on screen, a slow cold start, Slide Over.
+
+Two things now guarantee the prompt gets its chance:
+
+- **Every activation retries** while the status is `.notDetermined`.
+  `newAppApp`'s `scenePhase == .active` calls `requestIfNeeded()`, so a launch
+  that lost the race is rescued the moment the app is genuinely frontmost. The
+  wait for `.active` is still bounded (10s, up from 5) **because it sits on the
+  launch path ahead of `WebGate.decide()`** — an unbounded wait would strand the
+  install on the splash. Giving up there is no longer giving up on the prompt.
+- Concurrent callers share one request. `inFlight` holds the `Task`, and a
+  second caller awaits it rather than returning early — otherwise the
+  scenePhase call and the `RootView.task` call would race, and the gate could
+  run against a status the alert had not yet resolved.
+
+`RootView.task` also asks **before** the web-phase early return now. A returning
+web-mode install used to return without ever reaching the ATT call.
+
+The `ATT:` console line names which of the two indistinguishable "no prompt"
+causes happened, and the distinction is the whole point:
+
+- `app never became active …` — transient, ours, retried on the next foreground.
+- `denied in <n>ms with no alert drawn — 'Allow Apps to Request to Track' is
+  off …` — permanent and **not ours**. Settings › Privacy & Security › Tracking
+  is off, or a Screen Time restriction forbids it; `.denied` comes back in
+  microseconds with nothing drawn and no amount of asking will change it. This
+  is the first thing to check on any device that reports "no prompt", a review
+  device included.
+
+The reject's other half — *"the request must appear before any data that could
+be used to track the user is collected"* — was a second, separate failure.
+`/userapi/device/register` carries `appsflyer_id`, an identifier minted by a
+third-party attribution vendor, and `AppDelegate` fired it from
+`didFinishLaunchingWithOptions`, well before the prompt. `DeviceRegistrar`
+now waits on `TrackingAuthorization.settle()` before **any** registration built
+from `launchBody` — `.foreground` included, which is the one that slipped
+through the first attempt at this — and `appsflyer_id` is additionally omitted
+from the body while the status is unresolved, because `settle` is bounded and
+would otherwise let the id out once the timeout lapsed. A later registration
+carries it, once there is an answer.
+
+What deliberately does **not** wait: `registerForRemoteNotifications()` and the
+`apns_token` registration. That body is `device_id` + `apns_token` + `apns_env`
+— first-party push plumbing with no vendor identifier in it — and delaying it
+would cost the thing `has_apns_token` exists to prove. AppsFlyer's own network
+call was already correctly gated: `AppsFlyerService.configure()` starts the SDK
+only from `registerSessionReadyListener` after `settle()`.
+
+Verified 03.09.2026 on iPhone 17 Pro and on an erased iPad Pro 11" (iPhone
+compatibility mode): the alert draws over the splash on both, the launch
+registration logs `held until the ATT prompt is answered`, and the only call
+that precedes the prompt is `apnsToken ok … has_apns_token=true`.
+
 ### The console dump
 
 `DebugAttributionDump` prints the whole integration as one `AF ══ …` block on
