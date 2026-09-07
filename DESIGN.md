@@ -13,7 +13,8 @@
   support staff, logistics, and ordinary people improvising "M as in Mike".
 - **Space/industry:** iOS Education / Reference. A crowded category — at least eight
   direct competitors ship a NATO alphabet trainer today.
-- **Project type:** Native iOS app (SwiftUI, iPhone only, portrait, deployment target 16).
+- **Project type:** Native iOS app (SwiftUI, universal iPhone + iPad, deployment target 16).
+  Portrait-locked on iPhone; all four orientations on iPad.
 - **The memorable thing:** *A serious instrument, not a game.* Every decision below
   serves that one impression. When a choice is ambiguous, pick the one that reads as
   equipment.
@@ -182,8 +183,14 @@ Total bundled type: **324 KB**. Attribution for both OFL faces belongs in Settin
   the bottom of the screen and never move between questions — a shifting target costs
   thumb accuracy under time pressure.
 - **Border radius:** cards 20 · buttons 14 · tab bar 28 · mastery tile 9 · chips full pill
-- **Max content width:** full width minus gutters (iPhone only)
-- **Orientation:** portrait locked
+- **Max content width:** 560 pt, centred in the field (`Theme.Layout.contentWidth`,
+  applied with `.contentColumn()`). Below the cap — every iPhone — it is a no-op and the
+  layout is full width minus gutters, exactly as before. The floating tab bar has its own
+  narrower cap, `Theme.Layout.tabBarWidth` (520), so it stays a pill.
+- **Orientation:** portrait locked on iPhone; all four orientations on iPad
+- **Screen titles go inline at regular width** (`.adaptiveNavigationTitle()`). A flush-left
+  large title with a centred column reads as two unrelated layouts; a centred inline title
+  sits over the column it belongs to.
 
 ### Structural rules
 
@@ -306,6 +313,8 @@ corner radius.
 | 2026-08-17 | Shared record is a light PDF, not a dark one | `paper` is the printed artefact in this system, and a dark A4 is miserable to print. Print-only palette documented above. |
 | 2026-08-17 | Record carries the full alphabet reference | Fills the page with the thing the user actually needs mid-call, instead of white space. |
 | 2026-08-17 | App Store ID left nil until the listing exists | Share falls back to the description with no link. Shipping a dead URL to everyone the user invites is worse than shipping no URL. |
+| 2026-09-07 | Universal iPad build; content capped at 560 pt and centred | App Store reject 8d52198e (Guideline 4, 05.09.2026): the reviewer ran the iPhone-only binary in the iPad compatibility window on an iPad Air 11-inch and found it crowded. Reproduced — the splash wordmark overflowed the window and the stat row was clipped under the tab bar. Full-bleed at iPad width was not an option either, so the single-column IA is kept and capped. |
+| 2026-09-07 | iPad landscape allowed, against the portrait rule | Product owner's portrait rule is kept on iPhone. On iPadOS 26 a windowed app is resized whatever the plist says, so refusing to rotate bought nothing and cost a submission. |
 | 2026-08-17 | Chart stays the fifth tab | Research suggests promoting it to first would match the real moment of use (mid-call, one-handed). Not adopted in this pass — it is a product IA change, not a design system change. Open. |
 
 ## Open Items

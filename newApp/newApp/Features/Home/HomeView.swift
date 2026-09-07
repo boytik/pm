@@ -19,9 +19,11 @@ struct HomeView: View {
                 .padding(.top, Theme.Space.l)
 
                 .padding(.bottom, Theme.tabBarClearance)
+                .contentColumn()
             }
             .background(Theme.bg.ignoresSafeArea())
             .navigationTitle("Alpha Academy")
+            .adaptiveNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button { showSettings = true } label: {
