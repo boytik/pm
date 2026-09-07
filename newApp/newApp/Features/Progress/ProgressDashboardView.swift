@@ -19,9 +19,11 @@ struct ProgressDashboardView: View {
                 .padding(.top, Theme.Space.l)
 
                 .padding(.bottom, Theme.tabBarClearance)
+                .contentColumn()
             }
             .background(Theme.bg.ignoresSafeArea())
             .navigationTitle("Progress")
+            .adaptiveNavigationTitle()
             .navigationDestination(isPresented: $showAchievements) {
                 AchievementsView()
             }
@@ -166,6 +168,7 @@ struct AchievementsView: View {
                 }
             }
             .padding(Theme.Space.l)
+            .contentColumn()
         }
         .background(Theme.bg.ignoresSafeArea())
         .navigationTitle("Achievements")

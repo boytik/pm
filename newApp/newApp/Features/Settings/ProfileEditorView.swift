@@ -44,6 +44,7 @@ struct ProfileEditorView: View {
                 .padding(.horizontal, Theme.Space.l)
                 .padding(.top, Theme.Space.l)
                 .padding(.bottom, Theme.Space.xxl)
+                .contentColumn()
             }
             .background(Theme.bg.ignoresSafeArea())
             .scrollDismissesKeyboard(.interactively)

@@ -17,6 +17,7 @@ struct OnboardingFlowView: View {
             progressBar
                 .padding(.horizontal, Theme.Space.l)
                 .padding(.top, Theme.Space.m)
+                .contentColumn()
 
             TabView(selection: $page) {
                 whyPage.tag(0)
@@ -28,6 +29,7 @@ struct OnboardingFlowView: View {
 
             footer
                 .padding(Theme.Space.l)
+                .contentColumn()
         }
         .background(Theme.bg.ignoresSafeArea())
     }
@@ -256,6 +258,7 @@ private struct OnboardingPage<Content: View>: View {
             }
             .padding(.horizontal, Theme.Space.l)
             .padding(.bottom, Theme.Space.xl)
+            .contentColumn()
         }
     }
 }

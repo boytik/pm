@@ -35,9 +35,11 @@ struct PracticeHubView: View {
                 .padding(.top, Theme.Space.l)
 
                 .padding(.bottom, Theme.tabBarClearance)
+                .contentColumn()
             }
             .background(Theme.bg.ignoresSafeArea())
             .navigationTitle("Practice")
+            .adaptiveNavigationTitle()
             .fullScreenCover(item: $activeMode) { mode in
                 SessionContainerView(
                     mode: mode,

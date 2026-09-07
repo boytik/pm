@@ -21,9 +21,11 @@ struct LearnView: View {
                 .padding(.top, Theme.Space.l)
 
                 .padding(.bottom, Theme.tabBarClearance)
+                .contentColumn()
             }
             .background(Theme.bg.ignoresSafeArea())
             .navigationTitle("Learn")
+            .adaptiveNavigationTitle()
             .navigationDestination(for: PhoneticEntry.self) { entry in
                 LetterDetailView(entry: entry)
             }
@@ -65,6 +67,7 @@ struct LetterDetailView: View {
                 statsBlock
             }
             .padding(Theme.Space.l)
+            .contentColumn()
         }
         .background(Theme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)

@@ -31,10 +31,12 @@ struct ChartReferenceView: View {
                         .padding(.top, Theme.Space.xl)
                         .padding(.bottom, Theme.tabBarClearance)
                 }
+                .contentColumn()
             }
             .background(Theme.bg.ignoresSafeArea())
             .searchable(text: $query, prompt: "Search letter or word")
             .navigationTitle("Chart")
+            .adaptiveNavigationTitle()
             .toolbar { alphabetMenu }
         }
     }

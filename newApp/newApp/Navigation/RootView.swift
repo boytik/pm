@@ -51,6 +51,8 @@ struct RootView: View {
                 #if DEBUG
                 print("WEB route: WEB (decided earlier) → \(url.absoluteString)")
                 #endif
+
+                await TrackingAuthorization.requestIfNeeded()
                 return
             }
 
@@ -133,6 +135,7 @@ struct FloatingTabBar: View {
             RoundedRectangle(cornerRadius: Theme.Radius.tabBar, style: .continuous)
                 .strokeBorder(Theme.blueBright.opacity(0.10), lineWidth: Theme.hairline)
         )
+        .contentColumn(Theme.Layout.tabBarWidth)
         .padding(.horizontal, Theme.Space.m)
         .padding(.bottom, Theme.Space.m)
     }

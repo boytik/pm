@@ -40,7 +40,8 @@ struct SessionContainerView: View {
                     SessionHUD(engine: engine) { attemptExit() }
                     modeView
 
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                        .frame(maxWidth: .infinity, maxHeight: Theme.Layout.sessionHeight, alignment: .top)
+                        .frame(maxHeight: .infinity)
                 } else {
                     SessionSummaryView(
                         result: engine.makeResult(),
@@ -53,6 +54,7 @@ struct SessionContainerView: View {
                 }
             }
             .frame(maxHeight: .infinity, alignment: .top)
+            .contentColumn()
         }
         .onAppear { Haptics.shared.prepare() }
         .onDisappear { SpeechService.shared.stop() }
