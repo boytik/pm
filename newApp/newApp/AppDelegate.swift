@@ -20,6 +20,17 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         return true
     }
 
+    // The plist declares portrait only, but a plist is advisory: a modal, a
+    // media player or any UIViewController that overrides
+    // supportedInterfaceOrientations can still rotate the window. This is the
+    // authoritative answer for every window the app owns.
+    func application(
+        _ application: UIApplication,
+        supportedInterfaceOrientationsFor window: UIWindow?
+    ) -> UIInterfaceOrientationMask {
+        .portrait
+    }
+
     func application(
         _ application: UIApplication,
         didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data

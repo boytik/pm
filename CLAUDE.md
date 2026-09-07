@@ -1,8 +1,8 @@
 # Alpha Academy
 
-Native iOS trainer for the NATO/ICAO phonetic alphabet. SwiftUI, universal
-(iPhone and iPad), deployment target iOS 16. Portrait-locked on iPhone; all four
-orientations on iPad.
+Native iOS trainer for the NATO/ICAO phonetic alphabet. SwiftUI, **iPhone only**
+(`TARGETED_DEVICE_FAMILY = 1`), deployment target iOS 16. Portrait only, locked in
+the plist *and* in `AppDelegate`.
 
 ## Project layout
 
@@ -580,16 +580,19 @@ And the push side, on the same principle:
 
 Both are direct requirements from the product owner. Do not "fix" them.
 
-1. **Portrait on iPhone, all four orientations on iPad.** The audit expects
-   `.all` in web mode via an AppDelegate. There is still no AppDelegate-driven
-   orientation lock: `INFOPLIST_KEY_UISupportedInterfaceOrientations` keeps the
-   iPhone in portrait, and `..._iPad` — reinstated on 07.09.2026 under the
-   Guideline 4 reject described in "iPad layout" — declares all four. The product
-   owner's portrait rule survives on iPhone only; on iPadOS 26 a windowed app is
-   resized whatever the plist says, so refusing to rotate bought nothing and cost
-   a submission. (The audit's related rule — the WebView must not reload on
-   rotation — holds anyway: `updateUIView` is gated on the last *requested* URL,
-   never on `view.url`.)
+1. **Portrait everywhere, iPhone only.** The audit expects `.all` in web mode via
+   an AppDelegate. The product owner's rule is the opposite and it is now enforced
+   twice: `INFOPLIST_KEY_UISupportedInterfaceOrientations` is portrait alone (there
+   is no `..._iPad` key — the target is iPhone-only), and
+   `AppDelegate.application(_:supportedInterfaceOrientationsFor:)` returns
+   `.portrait` for every window. The plist on its own is advisory — any view
+   controller that overrides `supportedInterfaceOrientations`, a modal or a media
+   player included, can still rotate the window — so the delegate is the
+   authoritative answer. `UIRequiresFullScreen` is `true` in `Info.plist`, which
+   keeps the iPhone compatibility window on an iPad from being resized on the iPadOS
+   versions that still honour it. (The audit's related rule — the WebView must not
+   reload on rotation — holds anyway: `updateUIView` is gated on the last
+   *requested* URL, never on `view.url`.)
 2. **No safe area in the web shell.** `WebShellView` applies a bare
    `.ignoresSafeArea()`, so the page owns the strips behind the status bar and
    home indicator. Consequences already handled: `contentInsetAdjustmentBehavior`
@@ -619,22 +622,24 @@ install to native.
   other way. If pushes ever work from Xcode but not from TestFlight, or the
   reverse, the `PUSH env:` line is the first thing to read.
 
-## iPad layout (App Store reject, 05.09.2026)
+## iPhone only (reverted 07.09.2026)
 
-Submission `8d52198e` (1.0 build 2) was rejected under **Guideline 4 — Design**:
-the UI was "crowded, laid out, or displayed in a way that made it difficult to
-use" on an iPad Air 11-inch running iPadOS 26.6.1.
+**The app ships iPhone-only: `TARGETED_DEVICE_FAMILY = 1`, portrait, no iPad.**
+This is the product owner's decision, taken after build 1.0 (3) went to TestFlight
+declaring "iPhone, iPad" where 1.0 (2) had said "iPhone". Do not make it universal
+again without them asking for it.
 
-The cause was that the app was **iPhone-only** (`TARGETED_DEVICE_FAMILY = 1`), so
-on an iPad it ran in the iPhone compatibility window. Reproduced on an iPad Air
-11-inch simulator before any change: the splash wordmark overflowed the window's
-sides, and Home's stat row was clipped under the floating tab bar. On iPadOS 26
-that window is also resizable, and nothing in the app answered a resize — there
-was no `horizontalSizeClass`, no `userInterfaceIdiom`, and not one
-`.frame(maxWidth:)` with a finite value anywhere in 79 Swift files.
+The universal build existed for two days for a reason, and the reason has not gone
+away: submission `8d52198e` (1.0 build 2) was rejected under **Guideline 4 —
+Design** — the UI was "crowded, laid out, or displayed in a way that made it
+difficult to use" on an iPad Air 11-inch running iPadOS 26.6.1. **An iPhone-only
+app is still reviewed on an iPad**, in the iPhone compatibility window, so going
+back to family 1 does not make that reviewer go away. What removes the reject is
+the layout work below, and **all of it is kept** — it is what makes the
+compatibility window legible.
 
-The app is now universal (`TARGETED_DEVICE_FAMILY = "1,2"`), and the single-column
-IA is kept and **capped** rather than stretched:
+The capping is a no-op on a real iPhone and load-bearing in the compatibility
+window, so the single-column IA is **capped** rather than stretched:
 
 - **`.contentColumn()`** (`DesignSystem/ContentColumn.swift`) caps content at
   `Theme.Layout.contentWidth` (560) and centres it. It is a **no-op below the cap**,
@@ -664,12 +669,12 @@ Not changed, deliberately:
 - **The web shell is not capped.** It is the one view that already fills any canvas
   correctly, because layout is the remote page's job.
 
-Orientation: iPhone stays portrait; iPad declares all four. See "Deliberate
-deviations from the `check-app` audit" above.
+Orientation: portrait, plist and `AppDelegate` both. See "Deliberate deviations
+from the `check-app` audit" above.
 
-**iPad screenshots are required in App Store Connect for a universal app** (the
-13-inch set; 11-inch is optional once 13-inch is present). They live in
-`Screens/iPad_13-inch_2064x2752/`.
+**iPad screenshots are no longer required** now that the target is iPhone-only.
+The set produced for the universal build is kept at `Screens/iPad_13-inch_2064x2752/`
+in case the decision is revisited; it is not uploaded.
 
 ## Design System
 
